@@ -17,6 +17,7 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
+from typing import Iterable
 
 # 权重表：用户可读，也方便以后做设置项
 WEIGHTS = {
@@ -319,15 +320,50 @@ def _average_link(pairs: list[PairScore]) -> float:
     return sum(p.score for p in pairs) / len(pairs)
 
 
+def account_key(account: Account) -> str:
+    """约束文件里的键：站点|用户名。"""
+    return f"{account.site}|{account.username}"
+
+
 def cluster_accounts(
     accounts: list[Account],
     merge: float = MERGE_THRESHOLD,
     review: float = REVIEW_THRESHOLD,
+    must: Iterable[frozenset[str]] | None = None,
+    cannot: Iterable[frozenset[str]] | None = None,
 ) -> tuple[list[Cluster], list[dict]]:
-    """层次聚类。返回 (档案列表, 待确认组合)。"""
+    """层次聚类。返回 (档案列表, 待确认组合)。
+
+    must / cannot 是人工给的约束（键形如 "GitHub|alex"）：
+    must 里的账号先强行并组，cannot 里的任何一对永远不许合并。
+    """
     n = len(accounts)
     if n == 0:
         return [], []
+
+    key_of_index = {i: account_key(account) for i, account in enumerate(accounts)}
+    must_keys = {frozenset(pair) for pair in (must or ()) if len(pair) == 2}
+    cannot_keys = {frozenset(pair) for pair in (cannot or ()) if len(pair) == 2}
+
+    # must-link 用并查集先并起来
+    parent = list(range(n))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(x: int, y: int) -> None:
+        rx, ry = find(x), find(y)
+        if rx != ry:
+            parent[ry] = rx
+
+    index_by_key = {key: i for i, key in key_of_index.items()}
+    for pair in must_keys:
+        left, right = tuple(pair)
+        if left in index_by_key and right in index_by_key:
+            union(index_by_key[left], index_by_key[right])
 
     scores: dict[tuple[int, int], PairScore] = {}
     for i in range(n):
@@ -337,12 +373,22 @@ def cluster_accounts(
     def get(i: int, j: int) -> PairScore:
         return scores[(i, j)] if i < j else scores[(j, i)]
 
-    groups: list[list[int]] = [[i] for i in range(n)]
+    grouped: dict[int, list[int]] = {}
+    for i in range(n):
+        grouped.setdefault(find(i), []).append(i)
+    groups: list[list[int]] = [members for _, members in sorted(grouped.items())]
 
     while True:
         best: tuple[float, int, int, bool] | None = None
         for gi in range(len(groups)):
             for gj in range(gi + 1, len(groups)):
+                blocked = any(
+                    frozenset((key_of_index[x], key_of_index[y])) in cannot_keys
+                    for x in groups[gi]
+                    for y in groups[gj]
+                )
+                if blocked:
+                    continue
                 pairs = [get(x, y) for x in groups[gi] for y in groups[gj]]
                 avg = _average_link(pairs)
                 if avg < merge:
@@ -376,6 +422,14 @@ def cluster_accounts(
                         line = f"{accounts[x].site} ↔ {accounts[y].site}：{note}"
                         if line not in evidence:
                             evidence.append(line)
+        forced = [
+            f"{key_of_index[x]} ↔ {key_of_index[y]}"
+            for k, x in enumerate(group)
+            for y in group[k + 1:]
+            if frozenset((key_of_index[x], key_of_index[y])) in must_keys
+        ]
+        if forced:
+            evidence.insert(0, "人工指定为同一人：" + "；".join(forced[:3]))
         clusters.append(
             Cluster(
                 label=label,

@@ -8,6 +8,7 @@ from tkinter import messagebox, ttk
 
 from .. import __app_name_zh__, __version__
 from .. import config as cfg
+from ..constraints import Constraints
 from ..history import History
 from ..paths import ICON_PATH
 from ..platform_win import enable_dpi_awareness, open_path
@@ -16,6 +17,7 @@ from . import theme
 
 NAV_ITEMS = (
     ("search", "检索"),
+    ("graph", "图谱"),
     ("sites", "站点库"),
     ("history", "历史"),
     ("settings", "设置"),
@@ -33,6 +35,8 @@ class Shell(tk.Tk):
         self.s = self.winfo_fpixels("1i") / 96.0
         self.lib = SiteLibrary()
         self.hist = History()
+        self.constraints = Constraints()
+        self.identity: dict = {}
         self.pages: dict[str, ttk.Frame] = {}
         self.nav_buttons: dict[str, ttk.Button] = {}
         self.current = ""
@@ -136,6 +140,10 @@ class Shell(tk.Tk):
             from .page_search import SearchPage
 
             return SearchPage(self.content, self)
+        if key == "graph":
+            from .page_graph import GraphPage
+
+            return GraphPage(self.content, self)
         if key == "sites":
             from .page_sites import SitesPage
 

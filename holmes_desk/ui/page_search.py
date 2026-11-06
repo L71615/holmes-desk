@@ -232,6 +232,14 @@ class SearchPage(ttk.Frame):
             state="disabled",
         )
         self.btn_identity.pack(side="left", padx=(0, px(8)))
+        self.btn_graph = ttk.Button(
+            actions,
+            text="图谱",
+            style="Ghost.TButton",
+            command=lambda: self.shell.show("graph"),
+            state="disabled",
+        )
+        self.btn_graph.pack(side="left", padx=(0, px(8)))
         self.btn_open = ttk.Button(actions, text="打开结果目录", style="Ghost.TButton", command=self._open_out)
         self.btn_open.pack(side="left", padx=(0, px(8)))
         self.btn_report = ttk.Button(
@@ -625,12 +633,16 @@ class SearchPage(ttk.Frame):
                 )
                 for p in profiles
             ]
-            clusters, review = cluster_accounts(accounts)
-            self.queue.put(("identity_done", clusters, review))
+            clusters, review = cluster_accounts(
+                accounts,
+                must=self.shell.constraints.must,
+                cannot=self.shell.constraints.cannot,
+            )
+            self.queue.put(("identity_done", clusters, review, accounts))
         except Exception as exc:  # noqa: BLE001
             self.queue.put(("identity_error", f"{type(exc).__name__}: {exc}"))
 
-    def _apply_identity(self, clusters, review) -> None:
+    def _apply_identity(self, clusters, review, accounts=None) -> None:
         self.busy_identity = False
         self.btn_identity.configure(state="normal")
         self.clusters = clusters
@@ -641,6 +653,16 @@ class SearchPage(ttk.Frame):
                 if row:
                     row["identity"] = cluster.label
         self._render()
+        merged = [c for c in clusters if c.size > 1]
+        self.shell.identity = {
+            "accounts": list(accounts or []),
+            "clusters": clusters,
+            "review": review,
+        }
+        self.btn_graph.configure(state="normal")
+        graph_page = self.shell.pages.get("graph")
+        if graph_page is not None:
+            graph_page.refresh()
         merged = [c for c in clusters if c.size > 1]
         self._status(
             f"身份分析完成 · {len(clusters)} 个档案 · {len(merged)} 个合并组 · {len(review)} 组待确认"
@@ -667,7 +689,7 @@ class SearchPage(ttk.Frame):
                     _, done, total = message
                     self._status(f"身份分析 · 抓取主页 {done}/{total}")
                 elif kind == "identity_done":
-                    self._apply_identity(message[1], message[2])
+                    self._apply_identity(message[1], message[2], message[3] if len(message) > 3 else None)
                 elif kind == "identity_error":
                     self.busy_identity = False
                     self.btn_identity.configure(state="normal")
