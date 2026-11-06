@@ -14,12 +14,17 @@ from ..engine import QueryStatus, SearchCancelled, expand_usernames, pick_sites,
 from ..export import export_report, export_run
 from ..history import status_key
 from ..identity import MERGE_THRESHOLD, Account, alias_candidates, cluster_accounts
+from ..persona import build_persona
 from ..presets import preset_names, preset_text
 from ..profile import collect as collect_profiles
+from ..variants import generate as generate_variants
 from ..verify import VERDICT_TEXT, verify_claimed
 from . import theme
 from .dialog_identity import IdentityDialog
 from .dialog_alias import AliasDialog
+from .dialog_persona import PersonaDialog
+
+VARIANT_LIMIT = 12
 
 STATUS_TEXT: dict[QueryStatus, tuple[str, str]] = {
     QueryStatus.CLAIMED: ("已注册", "ok"),
@@ -84,6 +89,7 @@ class SearchPage(ttk.Frame):
         self.accounts: list = []
         self.aliases: list = []
         self.busy_identity = False
+        self.source_of: dict[str, str] = {}
 
         self._build()
         self._load_state()
@@ -223,40 +229,60 @@ class SearchPage(ttk.Frame):
             actions, text="停止", style="Ghost.TButton", command=self.stop_search, state="disabled"
         )
         self.btn_stop.pack(side="left", padx=px(8))
-        self.btn_verify = ttk.Button(
-            actions, text="复核已注册", style="Ghost.TButton", command=self.verify_rows, state="disabled"
-        )
-        self.btn_verify.pack(side="left", padx=(0, px(8)))
-        self.btn_identity = ttk.Button(
-            actions,
-            text="身份分析",
-            style="Ghost.TButton",
-            command=self.analyze_identity,
-            state="disabled",
-        )
-        self.btn_identity.pack(side="left", padx=(0, px(8)))
-        self.btn_graph = ttk.Button(
-            actions,
-            text="图谱",
-            style="Ghost.TButton",
-            command=lambda: self.shell.show("graph"),
-            state="disabled",
-        )
-        self.btn_graph.pack(side="left", padx=(0, px(8)))
-        self.btn_alias = ttk.Button(
-            actions,
-            text="换名同人",
-            style="Ghost.TButton",
-            command=self.open_aliases,
-            state="disabled",
-        )
-        self.btn_alias.pack(side="left", padx=(0, px(8)))
         self.btn_open = ttk.Button(actions, text="打开结果目录", style="Ghost.TButton", command=self._open_out)
         self.btn_open.pack(side="left", padx=(0, px(8)))
         self.btn_report = ttk.Button(
             actions, text="导出报告", style="Ghost.TButton", command=self.export_report_clicked, state="disabled"
         )
         self.btn_report.pack(side="left")
+
+        actions2 = ttk.Frame(right, style="TFrame")
+        actions2.pack(fill="x", pady=(0, px(6)))
+
+        self.btn_verify = ttk.Button(
+            actions2, text="复核已注册", style="Ghost.TButton", command=self.verify_rows, state="disabled"
+        )
+        self.btn_verify.pack(side="left")
+        self.btn_identity = ttk.Button(
+            actions2,
+            text="身份分析",
+            style="Ghost.TButton",
+            command=self.analyze_identity,
+            state="disabled",
+        )
+        self.btn_identity.pack(side="left", padx=(px(8), 0))
+        self.btn_graph = ttk.Button(
+            actions2,
+            text="图谱",
+            style="Ghost.TButton",
+            command=lambda: self.shell.show("graph"),
+            state="disabled",
+        )
+        self.btn_graph.pack(side="left", padx=(px(8), 0))
+        self.btn_alias = ttk.Button(
+            actions2,
+            text="换名同人",
+            style="Ghost.TButton",
+            command=self.open_aliases,
+            state="disabled",
+        )
+        self.btn_alias.pack(side="left", padx=(px(8), 0))
+        self.btn_variants = ttk.Button(
+            actions2,
+            text="变体扫查",
+            style="Ghost.TButton",
+            command=self.sweep_variants,
+            state="disabled",
+        )
+        self.btn_variants.pack(side="left", padx=(px(8), 0))
+        self.btn_persona = ttk.Button(
+            actions2,
+            text="人物看板",
+            style="Ghost.TButton",
+            command=self.open_persona,
+            state="disabled",
+        )
+        self.btn_persona.pack(side="left", padx=(px(8), 0))
 
         status_row = ttk.Frame(right, style="TFrame")
         status_row.pack(fill="x", pady=(0, px(6)))
@@ -296,6 +322,7 @@ class SearchPage(ttk.Frame):
             ("site", "站点", 180, "w", True),
             ("status", "状态", 80, "w", False),
             ("identity", "档案", 60, "center", False),
+            ("source", "来源", 150, "w", False),
             ("verdict", "复核", 90, "w", False),
             ("link", "链接", 380, "w", True),
             ("http", "HTTP", 60, "center", False),
@@ -439,7 +466,10 @@ class SearchPage(ttk.Frame):
         self.review_pairs = []
         self.accounts = []
         self.aliases = []
+        self.source_of = {}
         self.btn_alias.configure(state="disabled", text="换名同人")
+        self.btn_variants.configure(state="disabled")
+        self.btn_persona.configure(state="disabled")
 
     def export_report_clicked(self) -> None:
         if not self.rows:
@@ -687,6 +717,8 @@ class SearchPage(ttk.Frame):
         graph_page = self.shell.pages.get("graph")
         if graph_page is not None:
             graph_page.refresh()
+        self.btn_variants.configure(state="normal" if self.accounts else "disabled")
+        self.btn_persona.configure(state="normal" if clusters else "disabled")
         merged = [c for c in clusters if c.size > 1]
         self._status(
             f"身份分析完成 · {len(clusters)} 个档案 · {len(merged)} 个合并组 · {len(review)} 组待确认"
@@ -718,6 +750,98 @@ class SearchPage(ttk.Frame):
         self._status(f"已合并 {item['a']} ↔ {item['b']}，重新聚类为 {len(clusters)} 个档案")
         IdentityDialog(self.winfo_toplevel(), clusters, review, self.px)
 
+    # ---------- 变体扫查 / 人物看板 ----------
+    def sweep_variants(self) -> None:
+        """用已命中账号的昵称派生用户名变体，再跑一轮把散落的账号捞回来。"""
+        if self.busy or self.busy_identity:
+            return
+        if not self.accounts:
+            messagebox.showinfo("先做身份分析", "变体是从已命中账号的昵称派生的，先点「身份分析」。")
+            return
+
+        usernames = sorted({account.username for account in self.accounts})
+        names = sorted({account.display_name for account in self.accounts if account.display_name})
+        candidates = generate_variants(usernames, names, limit=VARIANT_LIMIT)
+        if not candidates:
+            messagebox.showinfo("没有可试的变体", "这次的昵称没生成出新的用户名组合。")
+            return
+
+        selected, _missing = self._resolve_sites()
+        if not self.var_nsfw.get():
+            selected = {name: info for name, info in selected.items() if not info.get("isNSFW")}
+        if not selected:
+            messagebox.showerror("没有可用站点", "站点一个都没选上。")
+            return
+
+        total = len(candidates) * len(selected)
+        preview = "、".join(item.username for item in candidates[:6])
+        if not messagebox.askyesno(
+            "变体扫查",
+            f"将用 {len(candidates)} 个变体 × {len(selected)} 个站点再查一轮"
+            f"（约 {total} 次请求）。\n\n变体示例：{preview}"
+            + ("…" if len(candidates) > 6 else ""),
+        ):
+            return
+
+        self.source_of = {item.username: f"变体 · {item.username}" for item in candidates}
+        self.busy = True
+        self.cancel_event.clear()
+        self.progress.configure(maximum=max(1, len(candidates)), value=0)
+        self.btn_start.configure(state="disabled")
+        self.btn_stop.configure(state="normal")
+        self.btn_variants.configure(state="disabled")
+        self._status(f"变体扫查 · 0/{len(candidates)}")
+
+        proxy = self.ent_proxy.get().strip() or None
+        timeout = float(self.spn_timeout.get() or 20)
+        threading.Thread(
+            target=self._variants_worker,
+            args=(candidates, selected, proxy, timeout),
+            daemon=True,
+        ).start()
+
+    def _variants_worker(self, candidates, site_data, proxy, timeout) -> None:
+        try:
+            for index, variant in enumerate(candidates, start=1):
+                if self.cancel_event.is_set():
+                    raise SearchCancelled()
+                self.queue.put(
+                    ("variants_progress", index, len(candidates), variant.username, variant.reason)
+                )
+                search(
+                    variant.username,
+                    site_data,
+                    notify=_QueueNotify(self.queue, variant.username, self.cancel_event),
+                    proxy=proxy,
+                    timeout=timeout,
+                    cancel=self.cancel_event,
+                )
+        except SearchCancelled:
+            self.queue.put(("variants_done", True))
+            return
+        except Exception as exc:  # noqa: BLE001
+            self.queue.put(("variants_error", f"{type(exc).__name__}: {exc}"))
+            return
+        self.queue.put(("variants_done", False))
+
+    def _variants_finish(self, cancelled: bool = False) -> None:
+        self.busy = False
+        self.btn_start.configure(state="normal")
+        self.btn_stop.configure(state="disabled")
+        self.btn_variants.configure(state="normal")
+        if cancelled:
+            self._status("变体扫查已停止")
+            return
+        self._status(f"变体扫查完成 · 共 {len(self.rows)} 个命中 · 正在重新拼合身份…")
+        self.after(200, self.analyze_identity)
+
+    def open_persona(self) -> None:
+        if not self.accounts:
+            messagebox.showinfo("先做身份分析", "人物看板要用主页内容拼出来，先点「身份分析」。")
+            return
+        persona = build_persona(self.accounts, self.clusters, self.review_pairs)
+        PersonaDialog(self.winfo_toplevel(), persona, self.px)
+
     # ---------- 队列 ----------
     def _pump(self) -> None:
         try:
@@ -744,6 +868,21 @@ class SearchPage(ttk.Frame):
                     self.btn_identity.configure(state="normal")
                     self._status("身份分析失败")
                     messagebox.showerror("身份分析失败", message[1])
+                elif kind == "variants_progress":
+                    _, index, count, username, reason = message
+                    self.progress.configure(value=index)
+                    self._status(
+                        f"变体扫查 {username}（{index}/{count}）· {reason} · 累计 {len(self.rows)} 个命中"
+                    )
+                elif kind == "variants_done":
+                    self._variants_finish(bool(message[1]))
+                elif kind == "variants_error":
+                    self.busy = False
+                    self.btn_start.configure(state="normal")
+                    self.btn_stop.configure(state="disabled")
+                    self.btn_variants.configure(state="normal")
+                    self._status("变体扫查失败")
+                    messagebox.showerror("变体扫查失败", message[1])
                 elif kind == "cancelled":
                     self._status("已停止")
                 elif kind == "error":
@@ -776,6 +915,7 @@ class SearchPage(ttk.Frame):
             "verdict": "",
             "verdict_tag": "",
             "identity": "",
+            "source": self.source_of.get(username, ""),
             "http": result.http_status if result.http_status is not None else "—",
             "time": "" if result.query_time is None else f"{result.query_time:.2f}s",
             "tag": tag,
@@ -828,6 +968,7 @@ class SearchPage(ttk.Frame):
                 row["site"],
                 row["status"],
                 row.get("identity") or "—",
+                row.get("source") or "—",
                 row.get("verdict") or "—",
                 row["url_user"] or "—",
                 row["http"],
