@@ -9,8 +9,6 @@ from typing import Any, Iterable
 
 from . import config
 
-HISTORY_PATH = config.config_dir() / "history.db"
-
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,12 +52,20 @@ def status_key(value: object) -> str:
 class History:
     def __init__(self, path: Path | str | None = None) -> None:
         self.path = Path(path) if path else config.config_dir() / "history.db"
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(self.path)
+        self._conn = self._open(self.path)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn.executescript(SCHEMA)
         self._conn.commit()
+
+    @staticmethod
+    def _open(path: Path) -> sqlite3.Connection:
+        """优先用文件库；目录写不进去就退成内存库，绝不因此打不开界面。"""
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            return sqlite3.connect(path)
+        except (OSError, sqlite3.Error):
+            return sqlite3.connect(":memory:")
 
     # ---------- 写入 ----------
     def add_run(

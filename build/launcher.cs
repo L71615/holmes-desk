@@ -30,6 +30,8 @@ class HolmesDeskLauncher
             psi.CreateNoWindow = true;
             psi.RedirectStandardOutput = true;
             psi.RedirectStandardError = true;
+            psi.StandardOutputEncoding = Encoding.UTF8;
+            psi.StandardErrorEncoding = Encoding.UTF8;
 
             string oldPath = Environment.GetEnvironmentVariable("PYTHONPATH");
             psi.EnvironmentVariables["PYTHONPATH"] = string.IsNullOrEmpty(oldPath) ? dir : dir + ";" + oldPath;

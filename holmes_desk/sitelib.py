@@ -27,7 +27,6 @@ from .paths import SITE_DATA_PATH
 from .presets import PRESETS
 
 DEFAULT_GROUP = "未分组"
-USER_LIB_PATH = config.config_dir() / "sites_user.json"
 
 # 首次运行时的分组种子（站点名与 data.json 完全一致）
 GROUP_SEEDS: dict[str, list[str]] = {
@@ -141,10 +140,14 @@ class SiteLibrary:
             "disabled": sorted(self.disabled),
             "custom": self.custom,
         }
-        self.user_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.user_path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(self.user_path)
+        try:
+            self.user_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.user_path.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp.replace(self.user_path)
+        except OSError:
+            # 站点库改动存不下来时不该炸掉界面，本次会话里照常生效即可
+            pass
 
     def _tidy(self) -> None:
         """去掉失效的组成员和禁名单，避免 data.json 变动后留下垃圾。"""

@@ -1,6 +1,10 @@
-"""设置持久化：存到 %APPDATA%\\HolmesDesk\\config.json。
+"""设置持久化。
 
-只存"下次打开还能用"的东西，不存检索结果（结果在 results 目录里）。
+默认存到 ``%APPDATA%\\HolmesDesk\\config.json``；如果那里写不进去（企业策略、
+Defender 受控文件夹访问、只读配置盘……），会依次退到 ``%LOCALAPPDATA%``、
+程序目录下的 ``.holmesdesk``、临时目录，最后用系统临时目录兜底。
+
+原则：**配置存哪里都不该阻断启动**，所以这里不抛异常。
 """
 
 from __future__ import annotations
@@ -8,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -33,19 +38,25 @@ DEFAULTS: dict[str, Any] = {
 
 
 def _candidates() -> list[Path]:
-    """按优先级列出配置目录候选：APPDATA → LOCALAPPDATA → 临时目录。"""
+    """按优先级列出配置目录候选。"""
     override = os.environ.get("HOLMES_DESK_HOME")
     if override:
         return [Path(override).expanduser()]
+
     if sys.platform == "win32":
         bases = [
             os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming"),
             os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local"),
-            os.environ.get("TEMP") or os.environ.get("TMP") or str(Path.home()),
         ]
-        return [Path(base) / "HolmesDesk" for base in bases]
-    base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return [base / "holmes-desk", Path(os.environ.get("TMPDIR", "/tmp")) / "holmes-desk"]
+    else:
+        bases = [os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")), "/tmp"]
+
+    dirs = [Path(base) / "HolmesDesk" for base in bases]
+    # 程序目录（解压到哪就在哪放一份，用户可见、基本一定可写）
+    dirs.append(Path(__file__).resolve().parent.parent / ".holmesdesk")
+    # 系统临时目录（最后手段，重启会清）
+    dirs.append(Path(tempfile.gettempdir()) / "HolmesDesk")
+    return dirs
 
 
 _DIR_CACHE: Path | None = None
@@ -64,27 +75,33 @@ def _usable(path: Path) -> bool:
 
 
 def config_dir() -> Path:
-    """配置目录；第一个能写的候选胜出，全都不行才抛错。
+    """配置目录；第一个能写的候选胜出。
 
-    设了 HOLMES_DESK_HOME 就只用它（便携模式/测试用）。
+    全都不行时返回一个新建的临时目录 —— 宁可这次运行不记住设置，也不要打不开界面。
     """
     global _DIR_CACHE, _DIR_ERROR
     if _DIR_CACHE is not None:
         return _DIR_CACHE
+
     errors: list[str] = []
-    fallback = None
     for candidate in _candidates():
-        if fallback is None:
-            fallback = candidate
         if _usable(candidate):
             if errors:
-                _DIR_ERROR = "配置目录不可写，已改用 " + str(candidate) + "（" + "；".join(errors) + "）"
+                _DIR_ERROR = "配置目录不可写，已改用 " + str(candidate)
             _DIR_CACHE = candidate
             return candidate
-        errors.append(f"{candidate}: 拒绝访问")
-    raise RuntimeError(
-        "找不到可写的配置目录：" + ("；".join(errors) or "无候选") + f"（已尝试 {fallback}）"
-    )
+        errors.append(str(candidate))
+
+    try:
+        fallback = Path(tempfile.mkdtemp(prefix="holmesdesk-"))
+        _DIR_ERROR = "配置目录全部不可写，本次使用临时目录 " + str(fallback)
+        _DIR_CACHE = fallback
+        return fallback
+    except OSError:  # 兜到底还是不行，也只能给个占位路径
+        home = Path.home() / ".holmesdesk"
+        _DIR_ERROR = "配置目录不可写，设置将不会保存（" + "；".join(errors) + "）"
+        _DIR_CACHE = home
+        return home
 
 
 def config_path() -> Path:
@@ -93,10 +110,8 @@ def config_path() -> Path:
 
 def config_dir_error() -> str:
     """如果换了目录，这里有一句人类可读的原因；正常情况是空串。"""
+    config_dir()
     return _DIR_ERROR
-
-
-CONFIG_PATH = config_path()
 
 
 def load() -> dict[str, Any]:
@@ -111,10 +126,13 @@ def load() -> dict[str, Any]:
 
 
 def save(data: dict[str, Any]) -> None:
-    """原子写入，避免中途退出留下半个 JSON。"""
-    target = config_path()
-    target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2)
-    os.replace(tmp, target)
+    """原子写入；写失败只忽略，不弹错（设置丢了比程序崩了好）。"""
+    try:
+        target = config_path()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp, target)
+    except OSError:
+        pass
