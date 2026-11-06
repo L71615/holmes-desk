@@ -121,6 +121,7 @@ class Account:
     mentions: list[str] = field(default_factory=list)
     lang: str = ""
     ok: bool = True
+    extra_pages: int = 0
 
     @property
     def title(self) -> str:

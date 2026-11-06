@@ -13,7 +13,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import messagebox, ttk
 
-from ..graph import Edge, account_key, build_edges, degrees, layout, node_radius
+from ..graph import Edge, account_key, build_edges, cluster_layout, degrees, layout, node_radius
 from ..identity import Account, Cluster, score_pair
 from . import theme
 
@@ -147,17 +147,11 @@ class GraphPage(ttk.Frame):
         width = 1000.0
         height = 700.0
         keys = [account_key(account) for account in self.accounts]
-        raw = layout(keys, self.edges, width=width, height=height)
-        xs = [point[0] for point in raw.values()]
-        ys = [point[1] for point in raw.values()]
-        min_x, max_x = min(xs), max(xs)
-        min_y, max_y = min(ys), max(ys)
-        span_x = max(max_x - min_x, 1.0)
-        span_y = max(max_y - min_y, 1.0)
-        # 归一化到 0..1，绘制时再按画布尺寸铺开，窗口缩放不用重新算布局
-        self.pos = {
-            key: ((raw[key][0] - min_x) / span_x, (raw[key][1] - min_y) / span_y) for key in keys
-        }
+        # 分簇环形布局：每个档案自成一组，不再让力导向把它们挤成一坨
+        raw = cluster_layout(self.clusters, width=width, height=height)
+        if not raw:
+            raw = layout(keys, self.edges, width=width, height=height)
+        self.pos = {key: (raw[key][0] / width, raw[key][1] / height) for key in keys if key in raw}
         degree = degrees(keys, self.edges)
         max_degree = max(degree.values()) if degree else 0.0
         self.radius = {

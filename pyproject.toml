@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "holmes-desk"
-version = "0.8.1"
+version = "0.9.0"
 description = "HolmesDesk 本地用户名检索工具（Windows 桌面版，单依赖、可离线、结果导出五种格式）"
 readme = "README.md"
 requires-python = ">=3.9"

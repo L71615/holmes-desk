@@ -154,6 +154,61 @@ def layout(
     }
 
 
+def cluster_layout(
+    clusters: list,
+    width: float = 900.0,
+    height: float = 620.0,
+) -> dict[str, tuple[float, float]]:
+    """按"档案"分组的环形布局：一簇一圈，簇内再围一圈。
+
+    力导向在账号数少、证据弱的时候容易挤成一坨（用户能直接看出"没排开"），
+    这里改成确定性的分簇布局：不会重叠，也不依赖随机种子。
+    """
+    keys: list[str] = []
+    groups: list[list[str]] = []
+    for cluster in clusters:
+        members = [account_key(account) for account in getattr(cluster, "accounts", [])]
+        members = [m for m in members if m]
+        if not members:
+            continue
+        keys.extend(members)
+        groups.append(members)
+    if not keys:
+        return {}
+
+    cx, cy = width / 2.0, height / 2.0
+    margin = 46.0
+    if len(groups) == 1:
+        ring_r = min(width, height) * 0.30
+        return _ring(groups[0], cx, cy, ring_r, single_center=(cx, cy))
+
+    outer = min(width - 2 * margin, height - 2 * margin) * 0.40
+    positions: dict[str, tuple[float, float]] = {}
+    for index, members in enumerate(groups):
+        angle = 2 * math.pi * index / len(groups) - math.pi / 2
+        gx = cx + outer * math.cos(angle)
+        gy = cy + outer * math.sin(angle)
+        inner = 0.0 if len(members) == 1 else min(78.0, 18.0 + 12.0 * len(members))
+        positions.update(_ring(members, gx, gy, inner, single_center=(gx, gy)))
+    return positions
+
+
+def _ring(
+    members: list[str],
+    cx: float,
+    cy: float,
+    radius: float,
+    single_center: tuple[float, float],
+) -> dict[str, tuple[float, float]]:
+    if len(members) == 1:
+        return {members[0]: single_center}
+    out: dict[str, tuple[float, float]] = {}
+    for index, key in enumerate(members):
+        angle = 2 * math.pi * index / len(members) - math.pi / 2
+        out[key] = (cx + radius * math.cos(angle), cy + radius * math.sin(angle))
+    return out
+
+
 def node_radius(degree: float, max_degree: float, base: float = 14.0, span: float = 18.0) -> float:
     if max_degree <= 0:
         return base

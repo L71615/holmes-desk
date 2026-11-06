@@ -67,6 +67,9 @@ class Profile:
     mentions: list[str] = field(default_factory=list)
     lang: str = ""
     http_status: int | None = None
+    hrefs: list[str] = field(default_factory=list)
+    extra_pages: list[str] = field(default_factory=list)
+    extra_text: str = ""
 
 
 def _clean(text: str) -> str:
@@ -133,6 +136,7 @@ def _pick_bio(page: str, meta: dict[str, str]) -> str:
 def _pick_links(page: str, base_url: str, site_domain: str) -> tuple[list[str], list[str]]:
     domains: list[str] = []
     texts: list[str] = []
+    same_host: list[str] = []
     for href, label in _A_RE.findall(page)[:400]:
         href = href.strip()
         if not href or href.startswith(("#", "javascript:", "mailto:")):
@@ -143,12 +147,14 @@ def _pick_links(page: str, base_url: str, site_domain: str) -> tuple[list[str], 
         if not host:
             continue
         texts.append(_clean(label))
+        if host == (urlparse(base_url).hostname or "").lower() and absolute not in same_host:
+            same_host.append(absolute)
         if site_domain and (host == site_domain or host.endswith("." + site_domain)):
             continue
         if host in domains:
             continue
         domains.append(host)
-    return domains[:20], texts
+    return domains[:20], texts, same_host[:60]
 
 
 def parse_profile(page: str, url: str, site_domain: str = "") -> dict[str, Any]:
@@ -159,7 +165,7 @@ def parse_profile(page: str, url: str, site_domain: str = "") -> dict[str, Any]:
     display = _clean(meta.get("og:title", "")) or title or h1
     # 很多站点把标题写成 "Name (@handle) · Instagram"，去掉尾巴
     display = re.split(r"\s+[|·\-–—]\s+", display)[0].strip()
-    domains, texts = _pick_links(page, url, site_domain)
+    domains, texts, same_host = _pick_links(page, url, site_domain)
     bio = _pick_bio(page, meta)
     mentions = []
     for text in texts[:60] + [bio]:
@@ -173,6 +179,7 @@ def parse_profile(page: str, url: str, site_domain: str = "") -> dict[str, Any]:
         "avatar_url": _pick_avatar(page, meta, url),
         "links": domains,
         "mentions": mentions[:12],
+        "hrefs": same_host,
         "lang": (lang_match.group(1) if lang_match else "").split("-")[0].lower(),
     }
 
@@ -253,6 +260,8 @@ def fetch_one(
     url: str,
     timeout: float = 15.0,
     avatar_dir: Path | None = None,
+    deep: bool = False,
+    max_pages: int = 2,
 ) -> Profile:
     profile = Profile(username=username, site=site, url=url)
     try:
@@ -272,14 +281,118 @@ def fetch_one(
         profile.avatar_url = parsed["avatar_url"]
         profile.links = parsed["links"]
         profile.mentions = parsed["mentions"]
+        profile.hrefs = parsed.get("hrefs") or []
         profile.lang = parsed["lang"]
         profile.ok = True
 
+        if deep:
+            _fetch_deep(session, profile, timeout, max_pages)
         if avatar_dir is not None and profile.avatar_url:
             _attach_avatar(session, profile, timeout, avatar_dir)
     except Exception as exc:  # noqa: BLE001 - 抓失败只影响证据强度
         profile.error = f"{type(exc).__name__}: {exc}"
     return profile
+
+
+_BLOCK_RE = re.compile(r"<(script|style|noscript|template)[^>]*>.*?</\1>", re.I | re.S)
+_MAIN_RE = re.compile(r"<main\b[^>]*>(.*?)</main>", re.I | re.S)
+_ARTICLE_RE = re.compile(r"<article\b[^>]*>(.*?)</article>", re.I | re.S)
+_LEAD_RE = re.compile(r"""<div[^>]+(?:class|id)\s*=\s*["'][^"']*(?:readme|markdown-body|profile)[^"']*["'][^>]*>(.*?)</div>""", re.I | re.S)
+
+
+def _visible_text(page: str, limit: int = 3000) -> str:
+    """只取正文区（main / article / readme），别把导航栏和页脚也当成简介。"""
+    body = page
+    for pattern in (_MAIN_RE, _LEAD_RE, _ARTICLE_RE):
+        match = pattern.search(body)
+        if match and len(_TAG_RE.sub(" ", match.group(1)).strip()) > 80:
+            body = match.group(1)
+            break
+    body = _BLOCK_RE.sub(" ", body)
+    text = _TAG_RE.sub(" ", body)
+    return re.sub(r"\s+", " ", _clean(text))[:limit].strip()
+
+
+_NAV_SEGMENTS = (
+    "/login",
+    "/signup",
+    "/sign_up",
+    "/join",
+    "/features",
+    "/pricing",
+    "/about",
+    "/platform",
+    "/enterprise",
+    "/marketplace",
+    "/sponsors",
+    "/topics",
+    "/collections",
+    "/trending",
+    "/settings",
+    "/security",
+    "/apps",
+    "/contact",
+    "/explore",
+    "/search",
+    "/help",
+    "/privacy",
+    "/terms",
+    "/site",
+)
+
+
+def _deep_candidates(profile: Profile) -> list[str]:
+    """挑出值得跟进的同站页面：优先路径里带用户名的（通常是"关于/仓库/作品"页）。"""
+    name = profile.username.lower()
+    picked: list[tuple[int, str]] = []
+    seen = {profile.url}
+    for link in profile.hrefs:
+        if link in seen:
+            continue
+        path = urlparse(link).path
+        if path in ("", "/"):
+            continue
+        low = path.lower()
+        if any(low.startswith(seg) for seg in _NAV_SEGMENTS):
+            continue
+        seen.add(link)
+        picked.append((0 if name and name in low else 1, link))
+    picked.sort(key=lambda item: item[0])
+    return [link for _score, link in picked]
+
+
+def _fetch_deep(
+    session: requests.Session, profile: Profile, timeout: float, max_pages: int
+) -> None:
+    """跟进主页里指向同站的链接，把正文当补充证据（最多 max_pages 页）。
+
+    只抓同域名页面：既不越界，也避免把整个站爬下来。
+    """
+    host = (urlparse(profile.url).hostname or "").lower()
+    texts: list[str] = []
+    for link in _deep_candidates(profile):
+        if len(profile.extra_pages) >= max_pages:
+            break
+        parsed = urlparse(link)
+        if (parsed.hostname or "").lower() != host:
+            continue
+        try:
+            response = session.get(link, timeout=timeout, allow_redirects=True, stream=True)
+            if response.status_code >= 400:
+                continue
+            raw = b""
+            for chunk in response.iter_content(65536):
+                raw += chunk
+                if len(raw) >= MAX_HTML_BYTES:
+                    break
+            text = _visible_text(raw[:MAX_HTML_BYTES].decode(response.encoding or "utf-8", "ignore"))
+            if len(text) < 40:
+                continue
+            profile.extra_pages.append(link)
+            texts.append(text)
+        except Exception:  # noqa: BLE001
+            continue
+    profile.extra_text = _clean(" ".join(texts))[:3000]
 
 
 def _attach_avatar(
@@ -316,6 +429,8 @@ def collect(
     workers: int = 8,
     avatar_dir: Path | None = None,
     on_progress: Callable[[int, int, Profile], None] | None = None,
+    deep: bool = False,
+    max_pages: int = 2,
 ) -> list[Profile]:
     """并发抓一批账号的主页；accounts 是 (username, site, url)。"""
     from concurrent.futures import ThreadPoolExecutor
@@ -327,7 +442,7 @@ def collect(
     results: list[Profile] = []
 
     def work(item: tuple[str, str, str]) -> Profile:
-        return fetch_one(session, item[0], item[1], item[2], timeout, avatar_dir)
+        return fetch_one(session, item[0], item[1], item[2], timeout, avatar_dir, deep, max_pages)
 
     with ThreadPoolExecutor(max_workers=max(1, min(workers, 16))) as pool:
         for profile in pool.map(work, items):

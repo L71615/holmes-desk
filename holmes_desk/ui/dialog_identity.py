@@ -12,7 +12,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import ttk
 
-from ..identity import Cluster
+from ..identity import Cluster, score_pair
 from . import theme
 
 
@@ -152,6 +152,19 @@ class IdentityDialog(tk.Toplevel):
         self.txt.insert("1.0", text)
         self.txt.configure(state="disabled")
 
+    def _pair_lines(self, cluster: Cluster) -> list[str]:
+        """档案内部两两打分：让「为什么是一伙的」有具体数字可看。"""
+        accounts = list(cluster.accounts)
+        if len(accounts) < 2:
+            return []
+        lines: list[str] = []
+        for i, first in enumerate(accounts):
+            for second in accounts[i + 1 :]:
+                pair = score_pair(first, second)
+                notes = "；".join(pair.notes[:3]) or "无明显证据"
+                lines.append(f"  {first.site} ↔ {second.site}：{pair.score:.2f} · {notes}")
+        return lines
+
     def _on_select(self, _event=None) -> None:
         selection = self.tree.selection()
         if not selection:
@@ -164,11 +177,17 @@ class IdentityDialog(tk.Toplevel):
                     lines = [f"档案 {label} · {cluster.size} 个账号 · 一致度 {cluster.score:.2f}", ""]
                     lines.append("账号：")
                     for account in cluster.accounts:
-                        lines.append(f"  {account.site:<24} {account.url}")
+                        pages = f"（附带 {account.extra_pages} 页）" if account.extra_pages else ""
+                        lines.append(f"  {account.site:<24} {account.title}{pages}")
                     lines.append("")
                     lines.append("证据：")
                     for item in cluster.evidence or ["（无）"]:
                         lines.append(f"  · {item}")
+                    pairs = self._pair_lines(cluster)
+                    if pairs:
+                        lines.append("")
+                        lines.append("两两对比：")
+                        lines.extend(pairs)
                     self._write("\n".join(lines))
                     break
         else:
@@ -185,7 +204,7 @@ class IdentityDialog(tk.Toplevel):
                             f"{account.site}",
                             f"  用户名：{account.username}",
                             f"  昵称：{account.title}",
-                            f"  简介：{account.bio or '（无）'}",
+                            f"  简介：{(account.bio[:240] + '…') if len(account.bio) > 240 else (account.bio or '（无）')}",
                             f"  链接：{account.url}",
                             "",
                             "独立特征：",
@@ -193,6 +212,8 @@ class IdentityDialog(tk.Toplevel):
                             f"  外链域名：{'、'.join(account.links[:6]) or '（无）'}",
                             f"  提及：{'、'.join('@' + m for m in account.mentions[:6]) or '（无）'}",
                         ]
+                        if account.extra_pages:
+                            lines.append(f"  附带抓取：{account.extra_pages} 页（已并入简介参与比对）")
                         self._write("\n".join(lines))
                         return
 

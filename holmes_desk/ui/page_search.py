@@ -225,8 +225,12 @@ class SearchPage(ttk.Frame):
         self.ent_out.grid(row=0, column=1, sticky="ew")
         self.ent_out.insert(0, self.cfg.get("out_dir") or str(Path.cwd() / "results"))
         ttk.Button(row4, text="浏览…", style="Ghost.TButton", command=self._pick_dir).grid(
-            row=0, column=2, padx=(px(6), 0)
+            row=0, column=2, padx=(px(6), px(14))
         )
+        self.var_deep = tk.BooleanVar(value=bool(self.cfg.get("deep_profile", True)))
+        ttk.Checkbutton(
+            row4, text="深入主页（跟进简介里的同站链接）", variable=self.var_deep
+        ).grid(row=0, column=3, sticky="w")
 
         actions = ttk.Frame(right, style="TFrame")
         actions.pack(fill="x", pady=(px(10), px(6)))
@@ -654,16 +658,18 @@ class SearchPage(ttk.Frame):
 
         self.busy_identity = True
         self.btn_identity.configure(state="disabled")
-        self._status(f"身份分析 · 正在抓取 {len(claimed)} 个主页…")
+        deep = bool(self.var_deep.get())
+        hint = "（并跟进主页里的链接）" if deep else ""
+        self._status(f"身份分析 · 正在抓取 {len(claimed)} 个主页{hint}…")
         proxy = self.ent_proxy.get().strip() or None
         timeout = max(8.0, float(self.spn_timeout.get() or 20))
         threading.Thread(
             target=self._identity_worker,
-            args=(list(claimed), proxy, timeout),
+            args=(list(claimed), proxy, timeout, deep),
             daemon=True,
         ).start()
 
-    def _identity_worker(self, rows: list[dict], proxy, timeout: float) -> None:
+    def _identity_worker(self, rows: list[dict], proxy, timeout: float, deep: bool = False) -> None:
         try:
             from ..config import config_dir
 
@@ -680,6 +686,7 @@ class SearchPage(ttk.Frame):
                 workers=8,
                 avatar_dir=avatar_dir,
                 on_progress=on_progress,
+                deep=deep,
             )
             accounts = [
                 Account(
@@ -687,7 +694,8 @@ class SearchPage(ttk.Frame):
                     site=p.site,
                     url=p.url,
                     display_name=p.display_name,
-                    bio=p.bio,
+                    # 深入抓取的正文也当简介用：简介短、链接页里才有自我介绍
+                    bio=(p.bio + " " + p.extra_text).strip()[:1500] if p.extra_text else p.bio,
                     avatar_a=p.avatar_a,
                     avatar_d=p.avatar_d,
                     avatar_path=p.avatar_path,
@@ -695,6 +703,7 @@ class SearchPage(ttk.Frame):
                     mentions=list(p.mentions),
                     lang=p.lang,
                     ok=p.ok,
+                    extra_pages=len(p.extra_pages),
                 )
                 for p in profiles
             ]
@@ -713,6 +722,7 @@ class SearchPage(ttk.Frame):
         self.clusters = clusters
         self.review_pairs = review
         self.accounts = list(accounts or [])
+        self.extra_pages = sum(a.extra_pages for a in self.accounts)
         for cluster in clusters:
             for account in cluster.accounts:
                 row = self.rows.get(f"{account.username}|{account.site}")
@@ -739,8 +749,10 @@ class SearchPage(ttk.Frame):
         self.btn_variants.configure(state="normal" if self.accounts else "disabled")
         self.btn_persona.configure(state="normal" if clusters else "disabled")
         merged = [c for c in clusters if c.size > 1]
+        merged = [c for c in clusters if c.size > 1]
         self._status(
             f"身份分析完成 · {len(clusters)} 个档案 · {len(merged)} 个合并组 · {len(review)} 组待确认"
+            + (f" · 附带抓取 {self.extra_pages} 页" if self.extra_pages else "")
             + (f" · {len(self.aliases)} 组换名建议" if self.aliases else "")
         )
 
