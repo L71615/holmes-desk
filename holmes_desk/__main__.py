@@ -3,16 +3,59 @@
 from __future__ import annotations
 
 import argparse
+import faulthandler
+import os
 import sys
+import tempfile
+import traceback
+from datetime import datetime
+from pathlib import Path
 
 from . import __app_name__, __version__
 from .paths import ICON_PATH, SITE_DATA_PATH
 
 
-def _run_gui(selftest: float | None) -> int:
-    from .ui.app import main as gui_main
+def _startup_log() -> Path | None:
+    """双击启动时没有控制台，任何异常都得落到文件里，否则就是"点了没反应"。"""
+    for base in (Path(__file__).resolve().parent.parent, Path(tempfile.gettempdir())):
+        try:
+            path = base / "holmesdesk-startup.log"
+            path.touch(exist_ok=True)
+            return path
+        except OSError:
+            continue
+    return None
 
-    return gui_main(selftest)
+
+def _log(path: Path | None, text: str) -> None:
+    if path is None:
+        return
+    try:
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(f"{datetime.now():%H:%M:%S}  {text}\n")
+    except OSError:
+        pass
+
+
+def _run_gui(selftest: float | None) -> int:
+    log = _startup_log()
+    _log(log, f"start  argv={sys.argv[1:]}  python={sys.version.split()[0]}  cwd={os.getcwd()}")
+    if log is not None:
+        try:
+            faulthandler.enable(log.open("a", encoding="utf-8"))
+        except OSError:
+            pass
+
+    try:
+        from .ui.app import main as gui_main
+
+        _log(log, "import ui.app ok")
+        code = gui_main(selftest)
+        _log(log, f"exit   code={code}")
+        return code
+    except BaseException:
+        _log(log, "crash:\n" + traceback.format_exc())
+        raise
 
 
 def _run_search(args: argparse.Namespace) -> int:
