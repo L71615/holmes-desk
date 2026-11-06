@@ -13,12 +13,13 @@ from tkinter import filedialog, messagebox, ttk
 from ..engine import QueryStatus, SearchCancelled, expand_usernames, pick_sites, search
 from ..export import export_report, export_run
 from ..history import status_key
-from ..identity import MERGE_THRESHOLD, Account, cluster_accounts
+from ..identity import MERGE_THRESHOLD, Account, alias_candidates, cluster_accounts
 from ..presets import preset_names, preset_text
 from ..profile import collect as collect_profiles
 from ..verify import VERDICT_TEXT, verify_claimed
 from . import theme
 from .dialog_identity import IdentityDialog
+from .dialog_alias import AliasDialog
 
 STATUS_TEXT: dict[QueryStatus, tuple[str, str]] = {
     QueryStatus.CLAIMED: ("已注册", "ok"),
@@ -80,6 +81,8 @@ class SearchPage(ttk.Frame):
         self.last_out_dir = ""
         self.clusters: list = []
         self.review_pairs: list = []
+        self.accounts: list = []
+        self.aliases: list = []
         self.busy_identity = False
 
         self._build()
@@ -240,6 +243,14 @@ class SearchPage(ttk.Frame):
             state="disabled",
         )
         self.btn_graph.pack(side="left", padx=(0, px(8)))
+        self.btn_alias = ttk.Button(
+            actions,
+            text="换名同人",
+            style="Ghost.TButton",
+            command=self.open_aliases,
+            state="disabled",
+        )
+        self.btn_alias.pack(side="left", padx=(0, px(8)))
         self.btn_open = ttk.Button(actions, text="打开结果目录", style="Ghost.TButton", command=self._open_out)
         self.btn_open.pack(side="left", padx=(0, px(8)))
         self.btn_report = ttk.Button(
@@ -426,6 +437,9 @@ class SearchPage(ttk.Frame):
         self.btn_report.configure(state="disabled")
         self.clusters = []
         self.review_pairs = []
+        self.accounts = []
+        self.aliases = []
+        self.btn_alias.configure(state="disabled", text="换名同人")
 
     def export_report_clicked(self) -> None:
         if not self.rows:
@@ -649,6 +663,7 @@ class SearchPage(ttk.Frame):
         self.btn_identity.configure(state="normal")
         self.clusters = clusters
         self.review_pairs = review
+        self.accounts = list(accounts or [])
         for cluster in clusters:
             for account in cluster.accounts:
                 row = self.rows.get(f"{account.username}|{account.site}")
@@ -657,18 +672,50 @@ class SearchPage(ttk.Frame):
         self._render()
         merged = [c for c in clusters if c.size > 1]
         self.shell.identity = {
-            "accounts": list(accounts or []),
+            "accounts": self.accounts,
             "clusters": clusters,
             "review": review,
         }
         self.btn_graph.configure(state="normal")
+        self.aliases = alias_candidates(self.accounts) if self.accounts else []
+        if self.aliases:
+            self.btn_alias.configure(
+                state="normal", text=f"换名同人（{len(self.aliases)}）"
+            )
+        else:
+            self.btn_alias.configure(state="disabled", text="换名同人")
         graph_page = self.shell.pages.get("graph")
         if graph_page is not None:
             graph_page.refresh()
         merged = [c for c in clusters if c.size > 1]
         self._status(
             f"身份分析完成 · {len(clusters)} 个档案 · {len(merged)} 个合并组 · {len(review)} 组待确认"
+            + (f" · {len(self.aliases)} 组换名建议" if self.aliases else "")
         )
+
+    # ---------- 换名同人 ----------
+    def open_aliases(self) -> None:
+        if not self.aliases:
+            messagebox.showinfo("没有建议", "这次分析没有发现「用户名不同但很像」的组合。")
+            return
+        AliasDialog(self.winfo_toplevel(), list(self.aliases), self.px, self.accept_alias)
+
+    def accept_alias(self, item: dict) -> None:
+        """按建议把两个账号合并：写 must-link，然后立刻重新聚类。"""
+        key_a = f"{item['a']}|{item['a_username']}"
+        key_b = f"{item['b']}|{item['b_username']}"
+        self.shell.constraints.add_must(key_a, key_b)
+        try:
+            self.shell.constraints.save()
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showwarning("保存失败", f"约束没能写进文件：{exc}")
+        clusters, review = cluster_accounts(
+            self.accounts,
+            must=self.shell.constraints.must,
+            cannot=self.shell.constraints.cannot,
+        )
+        self._apply_identity(clusters, review, self.accounts)
+        self._status(f"已合并 {item['a']} ↔ {item['b']}，重新聚类为 {len(clusters)} 个档案")
         IdentityDialog(self.winfo_toplevel(), clusters, review, self.px)
 
     # ---------- 队列 ----------

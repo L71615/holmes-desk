@@ -134,6 +134,62 @@ class History:
         rows = int(cur.fetchone()["rows"])
         return {"runs": runs, "results": rows}
 
+    def previous_run(self, run_id: int) -> dict[str, Any] | None:
+        """同一次检索里、比它早的上一次（没指定用户名时取全局上一条）。"""
+        current = self.run(run_id)
+        if not current:
+            return None
+        cur = self._conn.execute(
+            "SELECT * FROM runs WHERE id < ? AND usernames = ? ORDER BY id DESC LIMIT 1",
+            (int(run_id), current["usernames"]),
+        )
+        row = cur.fetchone()
+        if row:
+            return dict(row)
+        cur = self._conn.execute(
+            "SELECT * FROM runs WHERE id < ? ORDER BY id DESC LIMIT 1", (int(run_id),)
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+    def compare(self, run_id: int, other_id: int | None = None) -> dict[str, Any] | None:
+        """对比两次检索：哪些账号这次新增、哪些消失、哪些还在。
+
+        返回 {"left": 本次 run, "right": 基线 run, "added", "removed", "kept"}，
+        added / removed / kept 都是 [{username, site, status, url}]。
+        """
+        left = self.run(run_id)
+        if not left:
+            return None
+        right = self.run(other_id) if other_id else self.previous_run(run_id)
+        if not right:
+            return None
+
+        def index(rows: Iterable[dict[str, Any]]) -> dict[tuple[str, str], dict[str, Any]]:
+            return {(row["username"], row["site"]): row for row in rows}
+
+        now = index(self.results(left["id"]))
+        before = index(self.results(right["id"]))
+
+        def claimed_only(items: dict[tuple[str, str], dict[str, Any]]) -> dict[tuple[str, str], dict[str, Any]]:
+            return {key: row for key, row in items.items() if status_key(row["status"]) == "claimed"}
+
+        now_claimed = claimed_only(now)
+        before_claimed = claimed_only(before)
+        added = [now[key] for key in now_claimed if key not in before_claimed]
+        removed = [before[key] for key in before_claimed if key not in now_claimed]
+        kept = [now[key] for key in now_claimed if key in before_claimed]
+        added.sort(key=lambda row: (row["username"], row["site"].lower()))
+        removed.sort(key=lambda row: (row["username"], row["site"].lower()))
+        kept.sort(key=lambda row: (row["username"], row["site"].lower()))
+        return {
+            "left": left,
+            "right": right,
+            "added": added,
+            "removed": removed,
+            "kept": kept,
+        }
+
     # ---------- 删除 ----------
     def delete_run(self, run_id: int) -> None:
         with self._conn:

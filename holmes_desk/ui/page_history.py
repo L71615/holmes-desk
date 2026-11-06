@@ -10,6 +10,7 @@ from tkinter import messagebox, ttk
 from ..history import STATUS_TEXT
 from ..platform_win import open_path
 from . import theme
+from .dialog_compare import CompareDialog
 
 
 class HistoryPage(ttk.Frame):
@@ -30,6 +31,9 @@ class HistoryPage(ttk.Frame):
             side="left", padx=px(8)
         )
         ttk.Button(actions, text="清空历史", style="Ghost.TButton", command=self._clear).pack(side="left")
+        ttk.Button(actions, text="和上一次对比", style="Ghost.TButton", command=self._compare).pack(
+            side="left", padx=(px(8), 0)
+        )
         ttk.Button(actions, text="打开结果目录", style="Ghost.TButton", command=self._open_dir).pack(
             side="left", padx=px(8)
         )
@@ -159,3 +163,18 @@ class HistoryPage(ttk.Frame):
         url = self.tree_detail.item(selection[0], "values")[3]
         if url and url.startswith("http"):
             webbrowser.open(url)
+
+    def _compare(self) -> None:
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showinfo("先选一条", "先选一条检索记录，再和它上一次比。")
+            return
+        run_id = int(selection[0])
+        diff = self.shell.hist.compare(run_id)
+        if not diff:
+            messagebox.showinfo(
+                "没有可比的记录",
+                "这条记录之前没有同用户名的检索，也没有更早的记录可以比。",
+            )
+            return
+        CompareDialog(self.winfo_toplevel(), diff, self.px)
