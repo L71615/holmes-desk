@@ -21,7 +21,7 @@ class AliasDialog(tk.Toplevel):
         self.aliases = aliases
         self.on_merge = on_merge
         self.transient(master)
-        self.geometry(f"{px(900)}x{px(470)}")
+        self.geometry(f"{px(1040)}x{px(470)}")
         self.minsize(px(720), px(400))
 
         header = tk.Frame(self, bg=theme.HEADER, height=px(56))
@@ -75,10 +75,10 @@ class AliasDialog(tk.Toplevel):
         columns = ("a", "b", "score", "why")
         self.tree = ttk.Treeview(card, columns=columns, show="headings", height=10)
         for key, text, width, anchor in (
-            ("a", "账号 A", 210, "w"),
-            ("b", "账号 B", 210, "w"),
-            ("score", "证据分", 80, "center"),
-            ("why", "理由", 420, "w"),
+            ("a", "账号 A", 190, "w"),
+            ("b", "账号 B", 190, "w"),
+            ("score", "证据分", 70, "center"),
+            ("why", "理由", 380, "w"),
         ):
             self.tree.heading(key, text=text, anchor=anchor)
             self.tree.column(key, width=self.px(width), anchor=anchor, stretch=key == "why")

@@ -16,7 +16,9 @@ Sherlock检索.exe
 results/
 *.log
 .testhome/
+.demohome/
 _demo*.py
+_shot_readme.py
 _mk_shot.py
 _out*.txt
 shot*.png
