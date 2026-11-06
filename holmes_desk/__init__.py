@@ -4,7 +4,7 @@
 联网到上游的运行依赖：站点表、判定规则、图标全部随程序分发。
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __app_name__ = "HolmesDesk"
 __app_name_zh__ = "HolmesDesk 用户名检索"
 

@@ -199,6 +199,7 @@ REPORT_FIELDS = [
     "site",
     "group",
     "status",
+    "identity",
     "verdict",
     "url_user",
     "http_status",
@@ -218,6 +219,7 @@ def _report_rows(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
                 "site": row.get("site") or "",
                 "group": row.get("group") or "",
                 "status": row.get("status") or "",
+                "identity": row.get("identity") or "",
                 "verdict": row.get("verdict") or "",
                 "url_user": row.get("url_user") or "",
                 "http_status": "" if row.get("http") in (None, "—") else row.get("http"),
@@ -306,6 +308,7 @@ def write_report_html(path: Path, username: str, rows: Iterable[dict[str, Any]])
             "      <tr>"
             f"<td>{html.escape(item['site'])}</td>"
             f'<td><span class="tag {css}">{html.escape(status)}</span></td>'
+            f"<td>{html.escape(item['identity'] or '—')}</td>"
             f'<td><span class="tag {vcss}">{html.escape(verdict or "—")}</span></td>'
             f"<td>{link}</td>"
             f"<td>{html.escape(str(item['http_status']))}</td>"
@@ -320,7 +323,7 @@ def write_report_html(path: Path, username: str, rows: Iterable[dict[str, Any]])
         sections.append(
             f"  <h2>{html.escape(group)}（{len(items)}）</h2>\n"
             "  <table>\n"
-            "    <thead><tr><th>站点</th><th>状态</th><th>复核</th><th>链接</th><th>HTTP</th><th>耗时</th></tr></thead>\n"
+            "    <thead><tr><th>站点</th><th>状态</th><th>档案</th><th>复核</th><th>链接</th><th>HTTP</th><th>耗时</th></tr></thead>\n"
             f"    <tbody>\n{body}\n    </tbody>\n"
             "  </table>"
         )
@@ -343,6 +346,8 @@ def write_report_txt(path: Path, username: str, rows: Iterable[dict[str, Any]]) 
     with open(path, "w", encoding="utf-8") as fh:
         for item in data:
             line = item["url_user"] or item["site"]
+            if item["identity"]:
+                line += f"  [档案 {item['identity']}]"
             if item["verdict"]:
                 line += f"  [{item['verdict']}]"
             fh.write(line + "\n")

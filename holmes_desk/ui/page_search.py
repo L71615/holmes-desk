@@ -13,9 +13,12 @@ from tkinter import filedialog, messagebox, ttk
 from ..engine import QueryStatus, SearchCancelled, expand_usernames, pick_sites, search
 from ..export import export_report, export_run
 from ..history import status_key
+from ..identity import MERGE_THRESHOLD, Account, cluster_accounts
 from ..presets import preset_names, preset_text
+from ..profile import collect as collect_profiles
 from ..verify import VERDICT_TEXT, verify_claimed
 from . import theme
+from .dialog_identity import IdentityDialog
 
 STATUS_TEXT: dict[QueryStatus, tuple[str, str]] = {
     QueryStatus.CLAIMED: ("已注册", "ok"),
@@ -75,6 +78,9 @@ class SearchPage(ttk.Frame):
         self.done = 0
         self.started_at = 0.0
         self.last_out_dir = ""
+        self.clusters: list = []
+        self.review_pairs: list = []
+        self.busy_identity = False
 
         self._build()
         self._load_state()
@@ -218,6 +224,14 @@ class SearchPage(ttk.Frame):
             actions, text="复核已注册", style="Ghost.TButton", command=self.verify_rows, state="disabled"
         )
         self.btn_verify.pack(side="left", padx=(0, px(8)))
+        self.btn_identity = ttk.Button(
+            actions,
+            text="身份分析",
+            style="Ghost.TButton",
+            command=self.analyze_identity,
+            state="disabled",
+        )
+        self.btn_identity.pack(side="left", padx=(0, px(8)))
         self.btn_open = ttk.Button(actions, text="打开结果目录", style="Ghost.TButton", command=self._open_out)
         self.btn_open.pack(side="left", padx=(0, px(8)))
         self.btn_report = ttk.Button(
@@ -260,10 +274,11 @@ class SearchPage(ttk.Frame):
         table.pack(fill="both", expand=True)
 
         columns = (
-            ("site", "站点", 200, "w", True),
-            ("status", "状态", 90, "w", False),
-            ("verdict", "复核", 100, "w", False),
-            ("link", "链接", 420, "w", True),
+            ("site", "站点", 180, "w", True),
+            ("status", "状态", 80, "w", False),
+            ("identity", "档案", 60, "center", False),
+            ("verdict", "复核", 90, "w", False),
+            ("link", "链接", 380, "w", True),
             ("http", "HTTP", 60, "center", False),
             ("time", "耗时", 70, "center", False),
         )
@@ -399,7 +414,10 @@ class SearchPage(ttk.Frame):
         self.run_rows.clear()
         self.lbl_count.configure(text="命中 0 个")
         self.btn_verify.configure(state="disabled")
+        self.btn_identity.configure(state="disabled")
         self.btn_report.configure(state="disabled")
+        self.clusters = []
+        self.review_pairs = []
 
     def export_report_clicked(self) -> None:
         if not self.rows:
@@ -552,6 +570,83 @@ class SearchPage(ttk.Frame):
             daemon=True,
         ).start()
 
+    # ---------- 身份分析 ----------
+    def analyze_identity(self) -> None:
+        if self.busy_identity:
+            return
+        claimed = [row for row in self.rows.values() if row["status_key"] == "claimed"]
+        if not claimed:
+            messagebox.showinfo("没有可分析的", "当前结果里没有「已注册」的条目。")
+            return
+
+        self.busy_identity = True
+        self.btn_identity.configure(state="disabled")
+        self._status(f"身份分析 · 正在抓取 {len(claimed)} 个主页…")
+        proxy = self.ent_proxy.get().strip() or None
+        timeout = max(8.0, float(self.spn_timeout.get() or 20))
+        threading.Thread(
+            target=self._identity_worker,
+            args=(list(claimed), proxy, timeout),
+            daemon=True,
+        ).start()
+
+    def _identity_worker(self, rows: list[dict], proxy, timeout: float) -> None:
+        try:
+            from ..config import config_dir
+
+            avatar_dir = Path(config_dir()) / "avatars"
+            pairs = [(row["username"], row["site"], row["url_user"]) for row in rows if row["url_user"]]
+
+            def on_progress(done: int, total: int, _profile) -> None:
+                self.queue.put(("identity_progress", done, total))
+
+            profiles = collect_profiles(
+                pairs,
+                proxy=proxy,
+                timeout=timeout,
+                workers=8,
+                avatar_dir=avatar_dir,
+                on_progress=on_progress,
+            )
+            accounts = [
+                Account(
+                    username=p.username,
+                    site=p.site,
+                    url=p.url,
+                    display_name=p.display_name,
+                    bio=p.bio,
+                    avatar_a=p.avatar_a,
+                    avatar_d=p.avatar_d,
+                    avatar_path=p.avatar_path,
+                    links=list(p.links),
+                    mentions=list(p.mentions),
+                    lang=p.lang,
+                    ok=p.ok,
+                )
+                for p in profiles
+            ]
+            clusters, review = cluster_accounts(accounts)
+            self.queue.put(("identity_done", clusters, review))
+        except Exception as exc:  # noqa: BLE001
+            self.queue.put(("identity_error", f"{type(exc).__name__}: {exc}"))
+
+    def _apply_identity(self, clusters, review) -> None:
+        self.busy_identity = False
+        self.btn_identity.configure(state="normal")
+        self.clusters = clusters
+        self.review_pairs = review
+        for cluster in clusters:
+            for account in cluster.accounts:
+                row = self.rows.get(f"{account.username}|{account.site}")
+                if row:
+                    row["identity"] = cluster.label
+        self._render()
+        merged = [c for c in clusters if c.size > 1]
+        self._status(
+            f"身份分析完成 · {len(clusters)} 个档案 · {len(merged)} 个合并组 · {len(review)} 组待确认"
+        )
+        IdentityDialog(self.winfo_toplevel(), clusters, review, self.px)
+
     # ---------- 队列 ----------
     def _pump(self) -> None:
         try:
@@ -568,6 +663,16 @@ class SearchPage(ttk.Frame):
                     self._finish_user(username, written, errors, hits)
                 elif kind == "verdict":
                     self._apply_verdict(message[1])
+                elif kind == "identity_progress":
+                    _, done, total = message
+                    self._status(f"身份分析 · 抓取主页 {done}/{total}")
+                elif kind == "identity_done":
+                    self._apply_identity(message[1], message[2])
+                elif kind == "identity_error":
+                    self.busy_identity = False
+                    self.btn_identity.configure(state="normal")
+                    self._status("身份分析失败")
+                    messagebox.showerror("身份分析失败", message[1])
                 elif kind == "cancelled":
                     self._status("已停止")
                 elif kind == "error":
@@ -599,6 +704,7 @@ class SearchPage(ttk.Frame):
             "status_key": key,
             "verdict": "",
             "verdict_tag": "",
+            "identity": "",
             "http": result.http_status if result.http_status is not None else "—",
             "time": "" if result.query_time is None else f"{result.query_time:.2f}s",
             "tag": tag,
@@ -622,6 +728,7 @@ class SearchPage(ttk.Frame):
             self.lbl_count.configure(text=f"命中 {len(self.rows)} 个 · 显示 {len(self.rows)} 条")
         if key == "claimed":
             self.btn_verify.configure(state="normal")
+            self.btn_identity.configure(state="normal")
         self.btn_report.configure(state="normal")
         self._status(f"检索中 · {self.done}/{self.total}")
 
@@ -649,6 +756,7 @@ class SearchPage(ttk.Frame):
             values=(
                 row["site"],
                 row["status"],
+                row.get("identity") or "—",
                 row.get("verdict") or "—",
                 row["url_user"] or "—",
                 row["http"],

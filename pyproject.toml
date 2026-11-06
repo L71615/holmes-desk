@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "holmes-desk"
-version = "0.3.0"
+version = "0.4.0"
 description = "HolmesDesk 本地用户名检索工具（Windows 桌面版，单依赖、可离线、结果导出五种格式）"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -22,6 +22,7 @@ dependencies = ["requests>=2.28"]
 
 [project.optional-dependencies]
 export = ["pandas>=2.0", "openpyxl>=3.1"]
+profile = ["pillow>=10.0"]
 build = ["pyinstaller>=6.0"]
 
 [project.scripts]
