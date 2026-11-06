@@ -63,17 +63,28 @@ class Shell(tk.Tk):
     def _place_window(self) -> None:
         width, height = self.px(1240), self.px(820)
         self.minsize(self.px(1000), self.px(640))
+        screen_w, screen_h = self.winfo_screenwidth(), self.winfo_screenheight()
         geometry = self.cfg.get("geometry") or ""
         if geometry:
             try:
+                self.update_idletasks()
                 self.geometry(geometry)
+                self.update_idletasks()
+                # 上次关窗时的位置可能来自另一块屏幕/已断开的显示器，
+                # 恢复到屏幕外就等于"点了没反应"，这里拉回可见区域。
+                x, y = self.winfo_x(), self.winfo_y()
+                w, h = self.winfo_width(), self.winfo_height()
+                if x < -40 or y < -40 or x > screen_w - 120 or y > screen_h - 120:
+                    x = max(0, (screen_w - w) // 2)
+                    y = max(0, (screen_h - h) // 4)
+                    self.geometry(f"{w}x{h}+{x}+{y}")
                 return
             except tk.TclError:
                 pass
-        screen_w, screen_h = self.winfo_screenwidth(), self.winfo_screenheight()
         x = max(0, (screen_w - width) // 2)
         y = max(0, (screen_h - height) // 4)
         self.geometry(f"{width}x{height}+{x}+{y}")
+        self.lift()
 
     # ---------- 界面 ----------
     def _build(self) -> None:
