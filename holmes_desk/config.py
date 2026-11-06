@@ -32,19 +32,68 @@ DEFAULTS: dict[str, Any] = {
 }
 
 
-def config_dir() -> Path:
-    """配置目录；设了 HOLMES_DESK_HOME 就用它（便携模式/测试用）。"""
+def _candidates() -> list[Path]:
+    """按优先级列出配置目录候选：APPDATA → LOCALAPPDATA → 临时目录。"""
     override = os.environ.get("HOLMES_DESK_HOME")
     if override:
-        return Path(override).expanduser()
+        return [Path(override).expanduser()]
     if sys.platform == "win32":
-        base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
-        return Path(base) / "HolmesDesk"
-    return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "holmes-desk"
+        bases = [
+            os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming"),
+            os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local"),
+            os.environ.get("TEMP") or os.environ.get("TMP") or str(Path.home()),
+        ]
+        return [Path(base) / "HolmesDesk" for base in bases]
+    base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    return [base / "holmes-desk", Path(os.environ.get("TMPDIR", "/tmp")) / "holmes-desk"]
+
+
+_DIR_CACHE: Path | None = None
+_DIR_ERROR = ""
+
+
+def _usable(path: Path) -> bool:
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".write-test"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def config_dir() -> Path:
+    """配置目录；第一个能写的候选胜出，全都不行才抛错。
+
+    设了 HOLMES_DESK_HOME 就只用它（便携模式/测试用）。
+    """
+    global _DIR_CACHE, _DIR_ERROR
+    if _DIR_CACHE is not None:
+        return _DIR_CACHE
+    errors: list[str] = []
+    fallback = None
+    for candidate in _candidates():
+        if fallback is None:
+            fallback = candidate
+        if _usable(candidate):
+            if errors:
+                _DIR_ERROR = "配置目录不可写，已改用 " + str(candidate) + "（" + "；".join(errors) + "）"
+            _DIR_CACHE = candidate
+            return candidate
+        errors.append(f"{candidate}: 拒绝访问")
+    raise RuntimeError(
+        "找不到可写的配置目录：" + ("；".join(errors) or "无候选") + f"（已尝试 {fallback}）"
+    )
 
 
 def config_path() -> Path:
     return config_dir() / "config.json"
+
+
+def config_dir_error() -> str:
+    """如果换了目录，这里有一句人类可读的原因；正常情况是空串。"""
+    return _DIR_ERROR
 
 
 CONFIG_PATH = config_path()

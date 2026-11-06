@@ -10,6 +10,7 @@ venv/
 # 打包产物
 *.spec
 HolmesDesk.exe
+holmesdesk-launcher.log
 Sherlock检索.exe
 
 # 运行产物

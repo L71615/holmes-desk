@@ -211,7 +211,25 @@ class Shell(tk.Tk):
 
 
 def main(selftest_seconds: float | None = None) -> int:
-    app = Shell()
+    try:
+        app = Shell()
+    except Exception as exc:  # noqa: BLE001 - 双击启动时没有控制台，必须弹窗
+        import tkinter as _tk
+        from tkinter import messagebox as _mb
+
+        root = _tk.Tk()
+        root.withdraw()
+        _mb.showerror(
+            "HolmesDesk 启动失败",
+            f"{type(exc).__name__}: {exc}\n\n"
+            "常见原因：配置目录没有写权限。\n"
+            "可以设一个环境变量 HOLMES_DESK_HOME 指向一个能写的目录再试。",
+        )
+        root.destroy()
+        return 1
+    note = cfg.config_dir_error()
+    if note:
+        app.status(note)
     if selftest_seconds:
         app.after(int(selftest_seconds * 1000), app.destroy)
     app.mainloop()

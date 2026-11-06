@@ -327,6 +327,20 @@ pwsh -File build\build.ps1
 - 唯一的「外联」是检索本身，以及 `--install-shortcut` 时调用本机 PowerShell 建快捷方式。
 - 配置和历史只存在本机 `%APPDATA%\HolmesDesk\`。
 
+## 常见问题
+
+**双击图标没反应 / 打开的是旧界面**
+
+- 桌面图标必须指向 `HolmesDesk.exe`（启动器）。如果还是老的 `Sherlock检索.exe`，
+  那是上一代的单页版本，删掉它、用 `python -m holmes_desk --install-shortcut` 重建。
+- 启动器会把失败原因写进程序目录的 `holmesdesk-launcher.log`，也会弹窗提示。
+
+**配置目录没有写权限**
+
+程序按 `%APPDATA%\HolmesDesk` → `%LOCALAPPDATA%\HolmesDesk` → 临时目录 的顺序找可写位置，
+自动挑第一个能写的，状态栏会说明换到了哪里。想固定位置就设环境变量
+`HOLMES_DESK_HOME=D:\HolmesDesk`。
+
 ## 注意
 
 这是给人自查用的工具：查自己的用户名、看自己的账号暴露面。

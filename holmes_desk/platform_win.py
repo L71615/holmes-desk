@@ -92,7 +92,15 @@ def build_launcher(icon: Path, out_exe: Path) -> Path | None:
         return None
     try:
         subprocess.run(
-            [csc, "/nologo", "/target:winexe", f"/win32icon:{icon}", f"/out:{out_exe}", str(source)],
+            [
+                csc,
+                "/nologo",
+                "/target:winexe",
+                "/r:System.Windows.Forms.dll",
+                f"/win32icon:{icon}",
+                f"/out:{out_exe}",
+                str(source),
+            ],
             check=True,
             capture_output=True,
             timeout=120,
