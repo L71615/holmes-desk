@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "holmes-desk"
+version = "0.1.0"
+description = "HolmesDesk · 本地用户名检索工具（Windows 桌面版，单依赖、可离线、结果导出五种格式）"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "L71615" }]
+keywords = ["osint", "username", "sherlock", "desktop", "tkinter", "windows"]
+classifiers = [
+  "Environment :: Win32 (MS Windows)",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+]
+dependencies = ["requests>=2.28"]
+
+[project.optional-dependencies]
+export = ["pandas>=2.0", "openpyxl>=3.1"]
+build = ["pyinstaller>=6.0"]
+
+[project.scripts]
+holmes-desk = "holmes_desk.__main__:main"
+
+[project.gui-scripts]
+holmes-desk-gui = "holmes_desk.__main__:main"
+
+[tool.setuptools]
+packages = ["holmes_desk", "holmes_desk.ui"]
+
+[tool.setuptools.package-data]
+holmes_desk = ["assets/*", "data/*.json"]

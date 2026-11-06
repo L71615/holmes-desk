@@ -1,0 +1,21 @@
+HolmesDesk
+==========
+
+本项目的灵感与初始数据来自 sherlock（sherlock-project/sherlock），
+MIT License, Copyright (c) 2016 Siddharth Dushantha。
+
+具体沿用了：
+
+1. 站点清单 holmes_desk/data/data.json —— 源自 sherlock 的
+   sherlock_project/resources/data.json，字段含义与其保持一致
+   （url / urlMain / errorType / errorMsg / errorCode / regexCheck /
+   urlProbe / request_method / request_payload / headers / isNSFW）。
+
+2. 站点状态判定思路 —— 参照 sherlock 的分类逻辑重写为独立实现
+   （见 holmes_desk/engine.py）。
+
+界面、引擎实现、导出模块、打包与快捷方式逻辑均为本项目自行编写，
+与上游无代码依赖关系：本程序不需要联网获取站点表，也不调用上游 API。
+
+上游项目：https://github.com/sherlock-project/sherlock
+上游许可证：MIT

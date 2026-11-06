@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/lib/
+dist/
+.venv/
+venv/
+
+# 打包产物
+*.spec
+HolmesDesk.exe
+Sherlock检索.exe
+
+# 运行产物
+results/
+*.log
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
