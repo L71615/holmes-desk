@@ -184,11 +184,23 @@ holmes-desk --install-shortcut
 | TXT | 纯链接清单，贴到别处最省事（报告版会在行尾标注复核结论） |
 | CSV | 进 Excel / 数据库（报告版多 `group` 和 `verdict` 两列） |
 | XLSX | 带表头的表格（需要 pandas + openpyxl） |
-| HTML | 单文件报告，含状态色标与统计，可直接发给别人；报告版按分组分段、标出「存疑」 |
+| HTML | 单文件报告，含状态色标、统计、**身份图谱**，可直接发给别人 |
 | JSONL | 每行一个 JSON，方便脚本继续处理 |
 
 检索导出字段：`username, site, url_main, url_user, exists, http_status, response_time_s`。
-报告导出字段：`username, site, group, status, verdict, url_user, http_status, response_time_s`。
+报告导出字段：`username, site, group, status, identity, verdict, url_user, http_status, response_time_s`。
+
+### HTML 报告里的图谱
+
+如果先做过身份分析再导出报告，HTML 会多两块内容（`docs/sample-report/sherlock.html` 是个真实样例）：
+
+1. **身份图谱**：SVG 画的账号关系图，圆点颜色 = 档案，实线强证据 / 虚线弱证据；
+   鼠标移到点上是高亮它的连线，点一下弹出昵称、简介、链接。纯 SVG + 二十来行原生 JS，
+   没有 CDN、没有框架，离线双击就能看。
+2. **可能是同一个人的不同用户名**：聚类以「用户名相同」为前提，不同名字之间再像也不会
+   自动并档，所以单独列一张表提醒你——账号 A、账号 B、证据分、理由。
+
+![报告里的图谱](docs/shot-report-graph.png)
 
 ## 命令行用法
 

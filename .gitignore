@@ -17,6 +17,7 @@ results/
 *.log
 .testhome/
 _demo*.py
+_mk_shot.py
 _out*.txt
 shot*.png
 !docs/shot-*.png

@@ -444,7 +444,9 @@ class SearchPage(ttk.Frame):
             name = f"{usernames[0]}-等{len(usernames)}人"
         out_dir = Path(self.ent_out.get().strip() or "results")
         run_dir = out_dir / f"{time.strftime('%Y%m%d-%H%M%S')}-report"
-        written, errors = export_report(run_dir, name, self.rows.values(), formats)
+        written, errors = export_report(
+            run_dir, name, self.rows.values(), formats, identity=self.shell.identity or None
+        )
         if written:
             self.last_out_dir = str(run_dir)
             self._status(f"报告已导出到 {run_dir}")

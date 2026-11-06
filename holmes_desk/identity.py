@@ -454,3 +454,37 @@ def cluster_accounts(
             )
     review_pairs.sort(key=lambda item: -item["score"])
     return clusters, review_pairs[:50]
+
+
+def alias_candidates(
+    accounts: list[Account], threshold: float = REVIEW_THRESHOLD, limit: int = 20
+) -> list[dict]:
+    """换名同人的候选：用户名不同、但证据分已经到「值得看一眼」的一对。
+
+    聚类以「用户名相同」为前提组织，所以不同名字之间即使头像一样也不会被并进
+    同一个档案——这里单独列出来，交给人工判断。
+    """
+    out: list[dict] = []
+    for i in range(len(accounts)):
+        for j in range(i + 1, len(accounts)):
+            left, right = accounts[i], accounts[j]
+            if left.username.lower() == right.username.lower():
+                continue
+            pair = score_pair(left, right)
+            if pair.score < threshold:
+                continue
+            out.append(
+                {
+                    "a": left.site,
+                    "a_username": left.username,
+                    "a_url": left.url,
+                    "b": right.site,
+                    "b_username": right.username,
+                    "b_url": right.url,
+                    "score": round(pair.score, 3),
+                    "strong": pair.strong,
+                    "notes": pair.notes,
+                }
+            )
+    out.sort(key=lambda item: -item["score"])
+    return out[:limit]

@@ -230,6 +230,159 @@ def _report_rows(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+GRAPH_PALETTE = [
+    "#2563eb",
+    "#16a34a",
+    "#d97706",
+    "#9333ea",
+    "#0891b2",
+    "#dc2626",
+    "#65a30d",
+    "#db2777",
+    "#4f46e5",
+    "#0d9488",
+    "#b45309",
+    "#7c3aed",
+]
+
+
+def _graph_geometry(identity: dict[str, Any]) -> dict[str, Any] | None:
+    """把身份分析结果算成 SVG 坐标：节点、连线、配色、半径。"""
+    from .graph import account_key, build_edges, degrees, layout, node_radius
+
+    accounts = list(identity.get("accounts") or [])
+    clusters = list(identity.get("clusters") or [])
+    if len(accounts) < 2:
+        return None
+
+    width, height = 880.0, 520.0
+    edges = build_edges(accounts)
+    keys = [account_key(account) for account in accounts]
+    pos = layout(keys, edges, width=width, height=height)
+    degree = degrees(keys, edges)
+    max_degree = max(degree.values()) if degree else 0.0
+
+    cluster_of: dict[str, str] = {}
+    for cluster in clusters:
+        for account in cluster.accounts:
+            cluster_of[account_key(account)] = cluster.label
+
+    nodes = []
+    for account in accounts:
+        key = account_key(account)
+        if key not in pos:
+            continue
+        nodes.append(
+            {
+                "key": key,
+                "x": round(pos[key][0], 1),
+                "y": round(pos[key][1], 1),
+                "r": round(node_radius(degree.get(key, 0.0), max_degree, base=12.0, span=10.0), 1),
+                "site": account.site,
+                "username": account.username,
+                "url": account.url,
+                "bio": account.bio[:120],
+                "cluster": cluster_of.get(key, ""),
+                "color": GRAPH_PALETTE[
+                    sorted({c.label for c in clusters}).index(cluster_of.get(key, "")) % len(GRAPH_PALETTE)
+                ]
+                if cluster_of.get(key) in {c.label for c in clusters}
+                else "#64748b",
+            }
+        )
+    return {
+        "width": width,
+        "height": height,
+        "nodes": nodes,
+        "edges": [
+            {"a": edge.a, "b": edge.b, "score": round(edge.score, 3), "strong": edge.strong}
+            for edge in edges
+        ],
+        "clusters": [{"label": c.label, "size": c.size, "sites": c.sites} for c in clusters],
+    }
+
+
+def _render_graph_svg(geometry: dict[str, Any]) -> str:
+    """纯 SVG 的图谱：不依赖 JS 也能看清，鼠标悬停时由一点 JS 高亮相关连线。"""
+    by_key = {node["key"]: node for node in geometry["nodes"]}
+
+    def esc(value: str) -> str:
+        return html.escape(str(value), quote=True)
+
+    parts: list[str] = []
+    for edge in geometry["edges"]:
+        left, right = by_key.get(edge["a"]), by_key.get(edge["b"])
+        if not left or not right:
+            continue
+        cls = "edge strong" if edge["strong"] else "edge"
+        parts.append(
+            f'<line class="{cls}" data-a="{esc(edge["a"])}" data-b="{esc(edge["b"])}" '
+            f'x1="{left["x"]}" y1="{left["y"]}" x2="{right["x"]}" y2="{right["y"]}">'
+            f"<title>{left['site']} ↔ {right['site']} · 证据 {edge['score']:.2f}</title></line>"
+        )
+    for node in geometry["nodes"]:
+        tip = f"{node['site']} · {node['username']}"
+        if node["bio"]:
+            tip += f"｜{node['bio']}"
+        parts.append(
+            f'<g class="node" data-k="{esc(node["key"])}">'
+            f'<circle cx="{node["x"]}" cy="{node["y"]}" r="{node["r"]}" fill="{node["color"]}">'
+            f"<title>{esc(tip)}</title></circle>"
+            f'<text x="{node["x"]}" y="{node["y"] + node["r"] + 13}" text-anchor="middle">{esc(node["site"][:20])}</text>'
+            "</g>"
+        )
+
+    legend = "".join(
+        f'<span class="chip"><i style="background:{GRAPH_PALETTE[index % len(GRAPH_PALETTE)]}"></i>'
+        f"档案 {esc(item['label'])}（{item['size']}）</span>"
+        for index, item in enumerate(geometry["clusters"][:12])
+    )
+    return (
+        '<section class="graph">\n'
+        "  <h2>身份图谱</h2>\n"
+        '  <p class="legend">一个点是一个账号，颜色表示档案；实线是强证据，虚线是弱证据。'
+        "鼠标移到点上会高亮它的连线。</p>\n"
+        f'  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {geometry["width"]} {geometry["height"]}" '
+        'role="img" aria-label="身份图谱">\n'
+        f"  {' '.join(parts)}\n"
+        "  </svg>\n"
+        f'  <p class="legend">{legend}</p>\n'
+        "</section>"
+    )
+
+
+def _render_aliases(identity: dict[str, Any]) -> str:
+    from .identity import alias_candidates
+
+    accounts = list(identity.get("accounts") or [])
+    if len(accounts) < 2:
+        return ""
+    candidates = alias_candidates(accounts)
+    if not candidates:
+        return ""
+    rows = []
+    for item in candidates:
+        rows.append(
+            "      <tr>"
+            f"<td>{html.escape(item['a'])}<br><span class=\"muted\">{html.escape(item['a_username'])}</span></td>"
+            f"<td>{html.escape(item['b'])}<br><span class=\"muted\">{html.escape(item['b_username'])}</span></td>"
+            f"<td><b>{item['score']:.2f}</b></td>"
+            f"<td>{html.escape('；'.join(item['notes'][:3]) or '—')}</td>"
+            "</tr>"
+        )
+    return (
+        '<section class="aliases">\n'
+        "  <h2>可能是同一个人的不同用户名</h2>\n"
+        '  <p class="legend">用户名不同、但头像 / 昵称 / 简介 / 互链的证据足以合并的组合。'
+        "聚类按用户名分组，所以这些不会被自动并进同一档案，需要你自己判断。</p>\n"
+        "  <table>\n"
+        "    <thead><tr><th>账号 A</th><th>账号 B</th><th>证据分</th><th>理由</th></tr></thead>\n"
+        f"    <tbody>\n{chr(10).join(rows)}\n    </tbody>\n"
+        "  </table>\n"
+        "</section>"
+    )
+
+
 REPORT_HTML = """<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -261,6 +414,17 @@ REPORT_HTML = """<!doctype html>
   .warn {{ background: #fef3c7; color: #92400e; }}
   .bad {{ background: #fee2e2; color: #991b1b; }}
   .muted {{ background: #f1f5f9; color: #475569; }}
+  .legend {{ color: #6b7280; font-size: 12px; margin: 6px 0 10px; }}
+  .chip {{ display: inline-flex; align-items: center; gap: 5px; margin-right: 14px; font-size: 12px; color: #374151; }}
+  .chip i {{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; }}
+  .graph svg {{ width: 100%; height: auto; background: #fff; border-radius: 12px; }}
+  .graph .node text {{ font-size: 11px; fill: #374151; }}
+  .graph .edge {{ stroke: #cbd5e1; stroke-dasharray: 4 3; stroke-width: 1.2; }}
+  .graph .edge.strong {{ stroke: #2563eb; stroke-dasharray: none; stroke-width: 2.2; }}
+  .graph .node {{ cursor: pointer; }}
+  .graph .node.dim {{ opacity: .22; }}
+  .graph .edge.dim {{ opacity: .08; }}
+  .graph .edge.hot {{ stroke: #f59e0b; stroke-width: 2.6; opacity: 1; }}
   footer {{ margin-top: 18px; color: #6b7280; font-size: 12px; text-align: center; }}
 </style>
 </head>
@@ -276,15 +440,51 @@ REPORT_HTML = """<!doctype html>
     <div class="stat bad"><b>{suspect}</b><span>存疑（可能误报）</span></div>
     <div class="stat"><b>{total}</b><span>本报告条目</span></div>
   </div>
+{graph}
+{aliases}
 {sections}
   <footer>本报告由 HolmesDesk 在本机生成，不含任何云端上传。</footer>
 </div>
+<script>
+  (function () {{
+    var nodes = document.querySelectorAll('.graph .node');
+    var edges = document.querySelectorAll('.graph .edge');
+    function clear() {{
+      edges.forEach(function (e) {{ e.classList.remove('hot', 'dim'); }});
+      nodes.forEach(function (n) {{ n.classList.remove('dim'); }});
+    }}
+    nodes.forEach(function (node) {{
+      var key = node.getAttribute('data-k');
+      node.addEventListener('mouseenter', function () {{
+        clear();
+        nodes.forEach(function (other) {{
+          if (other !== node) {{ other.classList.add('dim'); }}
+        }});
+        edges.forEach(function (edge) {{
+          var hit = edge.getAttribute('data-a') === key || edge.getAttribute('data-b') === key;
+          edge.classList.toggle('hot', hit);
+          edge.classList.toggle('dim', !hit);
+        }});
+      }});
+      node.addEventListener('mouseleave', clear);
+      node.addEventListener('click', function () {{
+        var node2 = node.querySelector('title');
+        if (node2) {{ window.alert(node2.textContent); }}
+      }});
+    }});
+  }})();
+</script>
 </body>
 </html>
 """
 
 
-def write_report_html(path: Path, username: str, rows: Iterable[dict[str, Any]]) -> int:
+def write_report_html(
+    path: Path,
+    username: str,
+    rows: Iterable[dict[str, Any]],
+    identity: dict[str, Any] | None = None,
+) -> int:
     data = _report_rows(rows)
     buckets: dict[str, list[dict[str, Any]]] = {}
     for item in data:
@@ -328,6 +528,14 @@ def write_report_html(path: Path, username: str, rows: Iterable[dict[str, Any]])
             "  </table>"
         )
 
+    graph_html = ""
+    aliases_html = ""
+    if identity:
+        geometry = _graph_geometry(identity)
+        if geometry:
+            graph_html = _render_graph_svg(geometry)
+        aliases_html = _render_aliases(identity)
+
     content = REPORT_HTML.format(
         username=html.escape(username),
         generated=time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -335,6 +543,8 @@ def write_report_html(path: Path, username: str, rows: Iterable[dict[str, Any]])
         verified=sum(1 for item in data if item["verdict"] == "复核通过"),
         suspect=sum(1 for item in data if item["verdict"] == "存疑"),
         total=len(data),
+        graph=graph_html,
+        aliases=aliases_html,
         sections="\n".join(sections) or '  <p style="color:#6b7280">没有条目。</p>',
     )
     path.write_text(content, encoding="utf-8")
@@ -394,8 +604,13 @@ def export_report(
     username: str,
     rows: Iterable[dict[str, Any]],
     formats: Iterable[str],
+    identity: dict[str, Any] | None = None,
 ) -> tuple[list[Path], list[str]]:
-    """导出界面上的当前结果（含复核结论与分组）。"""
+    """导出界面上的当前结果（含复核结论与分组）。
+
+    identity 是身份分析的结果（{"accounts", "clusters", "review"}）；
+    给了就顺手把图谱和「换名同人」候选画进 HTML 报告。
+    """
     run_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     errors: list[str] = []
@@ -403,7 +618,10 @@ def export_report(
         suffix, writer = REPORT_WRITERS[fmt]
         target = run_dir / f"{username}{suffix}"
         try:
-            writer(target, username, rows)
+            if fmt == "html":
+                writer(target, username, rows, identity=identity)
+            else:
+                writer(target, username, rows)
             written.append(target)
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{fmt.upper()} 导出失败：{exc}")
