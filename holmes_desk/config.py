@@ -20,6 +20,8 @@ DEFAULTS: dict[str, Any] = {
     "include_nsfw": False,
     "show_all": False,
     "local_sites": True,
+    "self_usernames": "L71615",
+    "self_only": False,
     "export_txt": True,
     "export_csv": True,
     "export_xlsx": False,

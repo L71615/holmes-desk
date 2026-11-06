@@ -15,6 +15,7 @@ from ..export import export_report, export_run
 from ..history import status_key
 from ..identity import MERGE_THRESHOLD, Account, alias_candidates, cluster_accounts
 from ..persona import build_persona
+from ..privacy import redact_persona
 from ..presets import preset_names, preset_text
 from ..profile import collect as collect_profiles
 from ..variants import generate as generate_variants
@@ -193,10 +194,17 @@ class SearchPage(ttk.Frame):
 
         self.var_nsfw = tk.BooleanVar(value=bool(self.cfg.get("include_nsfw")))
         self.var_showall = tk.BooleanVar(value=bool(self.cfg.get("show_all")))
+        self.var_self = tk.BooleanVar(value=bool(self.cfg.get("self_only")))
         ttk.Checkbutton(row2, text="包含 NSFW 站点", variable=self.var_nsfw).grid(
             row=0, column=4, padx=(0, px(14))
         )
         ttk.Checkbutton(row2, text="结果里显示未注册", variable=self.var_showall).grid(row=0, column=5)
+        ttk.Checkbutton(
+            row2,
+            text="自查模式（只查我，个人信息打码）",
+            variable=self.var_self,
+            command=self._on_self_toggle,
+        ).grid(row=0, column=6, padx=(px(14), 0))
 
         row3 = ttk.Frame(card, style="Card.TFrame")
         row3.pack(fill="x", pady=(px(10), 0))
@@ -516,6 +524,17 @@ class SearchPage(ttk.Frame):
     def start_search(self) -> None:
         if self.busy:
             return
+        if self.var_self.get():
+            mine = (self.cfg.get("self_usernames") or "").strip()
+            if mine:
+                self.ent_users.delete(0, "end")
+                self.ent_users.insert(0, mine)
+            elif not self.ent_users.get().strip():
+                messagebox.showinfo(
+                    "先填自己的用户名",
+                    "自查模式用的是设置页里「我的用户名」，先去设置页填上。",
+                )
+                return
         usernames = expand_usernames(self.ent_users.get())
         if not usernames:
             messagebox.showinfo("提示", "先填一个用户名，比如 sherlock")
@@ -840,7 +859,22 @@ class SearchPage(ttk.Frame):
             messagebox.showinfo("先做身份分析", "人物看板要用主页内容拼出来，先点「身份分析」。")
             return
         persona = build_persona(self.accounts, self.clusters, self.review_pairs)
+        if self.var_self.get():
+            persona = redact_persona(persona)
         PersonaDialog(self.winfo_toplevel(), persona, self.px)
+
+    def _on_self_toggle(self) -> None:
+        """勾上自查模式就把用户名换成「我自己的」，并提示打码。"""
+        if not self.var_self.get():
+            self._status("已退出自查模式")
+            return
+        mine = (self.cfg.get("self_usernames") or "").strip()
+        if mine:
+            self.ent_users.delete(0, "end")
+            self.ent_users.insert(0, mine)
+            self._status(f"自查模式 · 只查 {mine}，看板里的邮箱/IM/个人站点会打码")
+        else:
+            self._status("自查模式已开，但设置页里还没填「我的用户名」")
 
     # ---------- 队列 ----------
     def _pump(self) -> None:
@@ -1039,6 +1073,7 @@ class SearchPage(ttk.Frame):
                 "timeout": self.spn_timeout.get(),
                 "include_nsfw": self.var_nsfw.get(),
                 "show_all": self.var_showall.get(),
+                "self_only": self.var_self.get(),
                 "out_dir": self.ent_out.get(),
                 "checked_sites": sorted(self.checked),
             }

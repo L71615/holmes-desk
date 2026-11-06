@@ -69,8 +69,22 @@ class SettingsPage(ttk.Frame):
             side="left", padx=(px(14), 0)
         )
 
+        ttk.Label(card, text="我的用户名", style="Field.TLabel").grid(
+            row=6, column=0, sticky="w", pady=(px(6), px(8))
+        )
+        self.ent_self = ttk.Entry(card)
+        self.ent_self.grid(row=6, column=1, sticky="ew", pady=(px(6), px(8)))
+        self.ent_self.insert(0, self.cfg.get("self_usernames") or "")
+
+        self.var_self_default = tk.BooleanVar(value=bool(self.cfg.get("self_only")))
+        ttk.Checkbutton(
+            card,
+            text="检索页默认勾上「自查模式」：只查我自己的账号，看板里的邮箱 / IM / 个人站点打码",
+            variable=self.var_self_default,
+        ).grid(row=7, column=1, sticky="w")
+
         ttk.Button(card, text="保存设置", style="Accent.TButton", command=self._save).grid(
-            row=6, column=1, sticky="e", pady=(px(12), 0)
+            row=8, column=1, sticky="e", pady=(px(12), 0)
         )
 
         data_card = ttk.Frame(self, style="Card.TFrame", padding=px(16))
@@ -121,6 +135,8 @@ class SettingsPage(ttk.Frame):
                 "out_dir": self.ent_out.get(),
                 "include_nsfw": self.var_nsfw.get(),
                 "show_all": self.var_showall.get(),
+                "self_usernames": self.ent_self.get().strip(),
+                "self_only": self.var_self_default.get(),
             }
         )
         for key, var in self.var_formats.items():

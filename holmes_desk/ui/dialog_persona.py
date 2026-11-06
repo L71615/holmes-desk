@@ -36,6 +36,8 @@ class PersonaDialog(tk.Toplevel):
         subtitle = f"人物看板 · 可信度 {persona['confidence']}/100"
         if persona.get("username"):
             subtitle = f"用户名 {persona['username']} · " + subtitle
+        if persona.get("redacted"):
+            subtitle = "自查模式 · 邮箱/IM/站点已打码 · " + subtitle
         tk.Label(
             box,
             text=subtitle,
