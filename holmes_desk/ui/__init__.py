@@ -1,5 +1,3 @@
-"""界面层。"""
+from .app import Shell
 
-from .app import App
-
-__all__ = ["App"]
+__all__ = ["Shell"]

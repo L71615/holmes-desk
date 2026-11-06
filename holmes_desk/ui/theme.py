@@ -80,3 +80,39 @@ def apply_style(root: tk.Misc, px) -> None:
         "TProgressbar", background=ACCENT, troughcolor="#e6ebf5",
         bordercolor="#e6ebf5", lightcolor=ACCENT, darkcolor=ACCENT,
     )
+
+    # 左侧导航
+    st.configure("Side.TFrame", background="#f7f9fc")
+    st.configure(
+        "Nav.TButton", background="#f7f9fc", foreground="#374151", bordercolor="#f7f9fc",
+        focusthickness=0, padding=(px(18), px(10)), anchor="w",
+        font=(FONT, 11), relief="flat",
+    )
+    st.map(
+        "Nav.TButton",
+        background=[("active", "#e8eefb")],
+        bordercolor=[("active", "#e8eefb")],
+        foreground=[("active", ACCENT)],
+    )
+    st.configure(
+        "NavActive.TButton", background="#e4ecfd", foreground=ACCENT, bordercolor="#e4ecfd",
+        focusthickness=0, padding=(px(18), px(10)), anchor="w",
+        font=(FONT, 11, "bold"), relief="flat",
+    )
+    st.map(
+        "NavActive.TButton",
+        background=[("active", "#dbe6fb")],
+        bordercolor=[("active", "#dbe6fb")],
+    )
+
+    # 危险操作（删除）
+    st.configure(
+        "Danger.TButton", background=CARD, foreground=BAD, bordercolor="#f0c4c4",
+        focusthickness=0, padding=(px(14), px(8)), font=(FONT, 10),
+    )
+    st.map("Danger.TButton", background=[("active", "#fdeaea")])
+
+    st.configure("Status.TFrame", background="#e9edf5")
+    st.configure(
+        "Status.TLabel", background="#e9edf5", foreground="#4b5563", font=(FONT, 9),
+    )
