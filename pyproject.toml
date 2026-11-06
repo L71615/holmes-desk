@@ -1,11 +1,11 @@
-﻿[build-system]
+[build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "holmes-desk"
-version = "0.2.0"
-description = "HolmesDesk 路 鏈湴鐢ㄦ埛鍚嶆绱㈠伐鍏凤紙Windows 妗岄潰鐗堬紝鍗曚緷璧栥€佸彲绂荤嚎銆佺粨鏋滃鍑轰簲绉嶆牸寮忥級"
+version = "0.3.0"
+description = "HolmesDesk 本地用户名检索工具（Windows 桌面版，单依赖、可离线、结果导出五种格式）"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

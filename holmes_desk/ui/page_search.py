@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from ..engine import QueryStatus, SearchCancelled, expand_usernames, pick_sites, search
-from ..export import export_run
+from ..export import export_report, export_run
 from ..history import status_key
 from ..presets import preset_names, preset_text
 from ..verify import VERDICT_TEXT, verify_claimed
@@ -26,6 +26,16 @@ STATUS_TEXT: dict[QueryStatus, tuple[str, str]] = {
 }
 
 FORMATS = (("txt", "TXT"), ("csv", "CSV"), ("xlsx", "XLSX"), ("html", "HTML"), ("jsonl", "JSONL"))
+
+# 状态筛选下拉：显示文字 → 内部 status_key（None 表示不过滤）
+STATUS_FILTERS = {
+    "全部": None,
+    "已注册": "claimed",
+    "未注册": "available",
+    "未知": "unknown",
+    "格式不符": "illegal",
+    "被拦截": "waf",
+}
 
 CHECKED = "☑"
 UNCHECKED = "☐"
@@ -209,7 +219,11 @@ class SearchPage(ttk.Frame):
         )
         self.btn_verify.pack(side="left", padx=(0, px(8)))
         self.btn_open = ttk.Button(actions, text="打开结果目录", style="Ghost.TButton", command=self._open_out)
-        self.btn_open.pack(side="left")
+        self.btn_open.pack(side="left", padx=(0, px(8)))
+        self.btn_report = ttk.Button(
+            actions, text="导出报告", style="Ghost.TButton", command=self.export_report_clicked, state="disabled"
+        )
+        self.btn_report.pack(side="left")
 
         status_row = ttk.Frame(right, style="TFrame")
         status_row.pack(fill="x", pady=(0, px(6)))
@@ -229,9 +243,17 @@ class SearchPage(ttk.Frame):
         self.lbl_count = ttk.Label(toolbar, text="命中 0 个", style="Card.TLabel", font=(theme.FONT, 10, "bold"))
         self.lbl_count.pack(side="left")
         ttk.Label(toolbar, text="筛选", style="Hint.TLabel").pack(side="left", padx=(px(16), px(6)))
-        self.ent_filter = ttk.Entry(toolbar, width=20)
+        self.ent_filter = ttk.Entry(toolbar, width=18)
         self.ent_filter.pack(side="left")
         self.ent_filter.bind("<KeyRelease>", lambda _e: self._render())
+
+        self.cmb_status = ttk.Combobox(
+            toolbar, state="readonly", width=8, values=list(STATUS_FILTERS)
+        )
+        self.cmb_status.set("全部")
+        self.cmb_status.pack(side="left", padx=(px(10), 0))
+        self.cmb_status.bind("<<ComboboxSelected>>", lambda _e: self._render())
+
         ttk.Button(toolbar, text="清空", style="Ghost.TButton", command=self.clear_results).pack(side="right")
 
         table = ttk.Frame(result_card, style="Card.TFrame")
@@ -377,6 +399,31 @@ class SearchPage(ttk.Frame):
         self.run_rows.clear()
         self.lbl_count.configure(text="命中 0 个")
         self.btn_verify.configure(state="disabled")
+        self.btn_report.configure(state="disabled")
+
+    def export_report_clicked(self) -> None:
+        if not self.rows:
+            messagebox.showinfo("没有结果", "先跑一次检索，再来导出报告。")
+            return
+        formats = [key for key, var in self.var_formats.items() if var.get()]
+        if not formats:
+            messagebox.showinfo("没有选择格式", "至少勾选一种导出格式。")
+            return
+        usernames = sorted({row["username"] for row in self.rows.values()})
+        if len(usernames) == 1:
+            name = usernames[0]
+        elif len(usernames) <= 3:
+            name = "-".join(usernames)
+        else:
+            name = f"{usernames[0]}-等{len(usernames)}人"
+        out_dir = Path(self.ent_out.get().strip() or "results")
+        run_dir = out_dir / f"{time.strftime('%Y%m%d-%H%M%S')}-report"
+        written, errors = export_report(run_dir, name, self.rows.values(), formats)
+        if written:
+            self.last_out_dir = str(run_dir)
+            self._status(f"报告已导出到 {run_dir}")
+        if errors:
+            messagebox.showwarning("部分格式失败", "\n".join(errors))
 
     # ---------- 检索 ----------
     def _resolve_sites(self) -> tuple[dict, list[str]]:
@@ -546,6 +593,7 @@ class SearchPage(ttk.Frame):
         row = {
             "username": username,
             "site": result.site_name,
+            "group": self.shell.lib.group_of(result.site_name),
             "url_user": result.site_url_user,
             "status": label,
             "status_key": key,
@@ -574,6 +622,7 @@ class SearchPage(ttk.Frame):
             self.lbl_count.configure(text=f"命中 {len(self.rows)} 个 · 显示 {len(self.rows)} 条")
         if key == "claimed":
             self.btn_verify.configure(state="normal")
+        self.btn_report.configure(state="normal")
         self._status(f"检索中 · {self.done}/{self.total}")
 
     def _apply_verdict(self, payload: dict) -> None:
@@ -610,11 +659,14 @@ class SearchPage(ttk.Frame):
 
     def _render(self) -> None:
         keyword = self.ent_filter.get().strip().lower()
+        wanted = STATUS_FILTERS.get(self.cmb_status.get(), None)
         children = self.tree.get_children()
         if children:
             self.tree.delete(*children)
         shown = 0
         for item_id, row in self.rows.items():
+            if wanted and row["status_key"] != wanted:
+                continue
             haystack = f"{row['site']} {row['url_user']}".lower()
             if keyword and keyword not in haystack:
                 continue

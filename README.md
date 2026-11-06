@@ -57,8 +57,9 @@ holmes-desk --install-shortcut
 3. **代理**：程序会自动读取系统代理并探活后填入；不需要代理就清空。
 4. **超时**：单站点请求上限，默认 20 秒。网络差就调大。
 5. **导出**：勾选的格式会在 `results\<时间戳>\` 下生成每个用户名一份文件。
-6. 双击结果行可以直接打开那个主页；上方筛选框按站点名 / 链接过滤。
+6. 双击结果行可以直接打开那个主页；上方「筛选」按站点名 / 链接过滤，右边下拉按状态筛（全部 / 已注册 / 未注册 / 未知 / 格式不符 / 被拦截）。
 7. **复核已注册**：对「已注册」的行再打一次请求，减少误报（见下）。
+8. **导出报告**：把当前结果（带复核结论和分组）另存一份，跟检索时自动导出的原始结果分开。
 
 快捷键：`Ctrl+Enter` 开始，`Esc` 停止，`F5` 刷新当前页。
 
@@ -121,15 +122,18 @@ holmes-desk --install-shortcut
 
 ## 导出格式
 
+检索时按勾选的格式自动落盘；点「导出报告」则会额外出一份带上复核结论、按分组归类的版本。
+
 | 格式 | 用途 |
 | :-- | :-- |
-| TXT | 纯链接清单，贴到别处最省事 |
-| CSV | 进 Excel / 数据库 |
+| TXT | 纯链接清单，贴到别处最省事（报告版会在行尾标注复核结论） |
+| CSV | 进 Excel / 数据库（报告版多 `group` 和 `verdict` 两列） |
 | XLSX | 带表头的表格（需要 pandas + openpyxl） |
-| HTML | 单文件报告，含状态色标与统计，可直接发给别人 |
+| HTML | 单文件报告，含状态色标与统计，可直接发给别人；报告版按分组分段、标出「存疑」 |
 | JSONL | 每行一个 JSON，方便脚本继续处理 |
 
-字段：`username, site, url_main, url_user, exists, http_status, response_time_s`。
+检索导出字段：`username, site, url_main, url_user, exists, http_status, response_time_s`。
+报告导出字段：`username, site, group, status, verdict, url_user, http_status, response_time_s`。
 
 ## 命令行用法
 
