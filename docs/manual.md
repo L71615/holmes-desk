@@ -108,6 +108,13 @@ judgedee --install-shortcut
 是否有效、国家地区、归属地、运营商、时区、国际格式、本地格式、E.164。
 这一步**完全离线**——用的是 phonenumbers 的号码段库，号码不会发给任何服务器。
 
+号码库是可选依赖。没装时这一页会显示一条提示与「一键安装号码库（约 2.5 MB）」按钮：
+点了以后把 `phonenumbers` 装进 `%APPDATA%\JudgeDee\vendor\`（不碰系统 Python、不需要管理员权限），
+装完立刻生效，不用重启。打包版（`JudgeDee.exe`）已经内置，开箱就能用。
+想自己装也行：`pip install -e ".[phone]"`。
+
+![号码库未安装时的提示](shot-trace-install.png)
+
 结果表双击任意一行可复制单个值，底部按钮可整表复制。IP 查询只把被查的 IP 发给查询接口，
 不附带任何本机信息。
 

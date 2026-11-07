@@ -183,10 +183,16 @@ def parse_phone(
 ) -> dict[str, Any]:
     """解析一个手机号 / 固定电话：归属地、运营商、时区、号码类型、各种格式。"""
     try:
+        from . import phone_setup
+
+        phone_setup.ensure_path()  # 打包版把号码库放在 vendor 目录里
+    except Exception:  # noqa: BLE001 - 没有这个模块也不该挡路
+        pass
+    try:
         import phonenumbers
         from phonenumbers import carrier, geocoder, timezone
     except ImportError:
-        return _phone_error('未安装 phonenumbers，先执行：python -m pip install -e ".[phone]"')
+        return _phone_error("未安装号码库 phonenumbers，在「追踪」页点一键安装即可")
 
     text = (number or "").strip()
     if not text:

@@ -25,6 +25,8 @@ python -m PyInstaller `
     --add-data "judgedee\assets;judgedee\assets" `
     --add-data "judgedee\data;judgedee\data" `
     --collect-submodules judgedee `
+    --collect-submodules phonenumbers `
+    --hidden-import phonenumbers `
     judgedee\__main__.py
 
 if ($LASTEXITCODE -ne 0) {
