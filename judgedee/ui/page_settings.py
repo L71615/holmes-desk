@@ -139,17 +139,6 @@ class SettingsPage(ttk.Frame):
             style="Hint.TLabel", justify="left", wraplength=self.px(760),
         ).pack(anchor="w", pady=(px(6), px(10)))
 
-        ttk.Label(about, text="名字", style="Sub.TLabel").pack(anchor="w", pady=(px(4), px(2)))
-        ttk.Label(
-            about,
-            text=(
-                "名字取自唐代断案官狄仁杰：他断案不靠灵感，靠把证物一件件摆到桌上对照。\n"
-                "英文名 Judge Dee 是荷兰汉学家高罗佩写「狄公案」系列时给这个人物起的英文名，\n"
-                "短、能念、能拼，所以仓库名与包名都用 judgedee。只是借个人物，与影视、出版方无关。"
-            ),
-            style="Hint.TLabel", justify="left", wraplength=self.px(760),
-        ).pack(anchor="w", pady=(0, px(8)))
-
         for title, body in (
             (
                 "能做什么",
