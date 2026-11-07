@@ -76,6 +76,8 @@ class GraphPage(ttk.Frame):
         self.strong_only = False
         self.show_weak = True
         self.anchor_mode = False
+        self.aggregate = True
+        self.expanded: set[str] = set()
         self.anchor: dict = {}
         self.focus_key: str | None = None
         self._avatar_cache: dict[str, object] = {}
@@ -118,12 +120,18 @@ class GraphPage(ttk.Frame):
         )
         self.btn_clear.pack(side="left")
 
+        bar2 = ttk.Frame(self, style="TFrame")
+        bar2.pack(fill="x", pady=(0, px(6)))
+        self.btn_aggregate = ttk.Button(
+            bar2, text=i18n.t("账号视图"), style="Ghost.TButton", command=self.toggle_aggregate
+        )
+        self.btn_aggregate.pack(side="left")
         self.btn_anchor = ttk.Button(
-            bar, text=i18n.t("锚定视图"), style="Ghost.TButton", command=self.toggle_anchor
+            bar2, text=i18n.t("锚定视图"), style="Ghost.TButton", command=self.toggle_anchor
         )
         self.btn_anchor.pack(side="left", padx=(px(8), 0))
         self.btn_png = ttk.Button(
-            bar, text=i18n.t("导出图片"), style="Ghost.TButton", command=self.export_image
+            bar2, text=i18n.t("导出图片"), style="Ghost.TButton", command=self.export_image
         )
         self.btn_png.pack(side="left", padx=(px(8), 0))
 
@@ -265,6 +273,9 @@ class GraphPage(ttk.Frame):
         canvas = self.canvas
         canvas.delete("all")
         if not self.accounts:
+            return
+        if self.aggregate and not self.anchor_mode:
+            self._draw_clusters()
             return
         zoom = self.zoom
         ox, oy = self.ox, self.oy
@@ -422,6 +433,173 @@ class GraphPage(ttk.Frame):
 
         self._draw_legend(width)
 
+    def _cluster_centers(self) -> dict[str, tuple[float, float]]:
+        """每个档案在屏幕上的中心点（成员位置的均值）。"""
+        centers: dict[str, tuple[float, float]] = {}
+        for cluster in self.clusters:
+            points = [
+                self.pos[account_key(account)]
+                for account in cluster.accounts
+                if account_key(account) in self.pos
+            ]
+            if not points:
+                continue
+            cx = sum(p[0] for p in points) / len(points)
+            cy = sum(p[1] for p in points) / len(points)
+            centers[cluster.label] = (cx, cy)
+        return centers
+
+    def _draw_clusters(self) -> None:
+        """档案视图：一圈一个「人」，点开才散出里面的账号。"""
+        canvas = self.canvas
+        zoom = self.zoom
+        ox, oy = self.ox, self.oy
+        width = max(canvas.winfo_width(), 240)
+        height = max(canvas.winfo_height(), 200)
+        margin_x = width * 0.08
+        margin_y = height * 0.10
+
+        def to_screen(point: tuple[float, float]) -> tuple[float, float]:
+            x = margin_x + point[0] * (width - 2 * margin_x)
+            y = margin_y + point[1] * (height - 2 * margin_y)
+            return x * zoom + ox, y * zoom + oy
+
+        centers = self._cluster_centers()
+        side = {label: max(1, len(c.accounts)) for label, c in ((c.label, c) for c in self.clusters)}
+        screen: dict[str, tuple[float, float]] = {}
+        radii: dict[str, float] = {}
+        for cluster in self.clusters:
+            center = centers.get(cluster.label)
+            if center is None:
+                continue
+            screen[cluster.label] = to_screen(center)
+            count = side.get(cluster.label, 1)
+            radii[cluster.label] = (self.px(24) + self.px(10) * (count ** 0.5)) * zoom
+
+        # 简单排斥：圆挨太近就互相推开，免得标签叠在一起看不清
+        labels = list(screen)
+        for _ in range(80):
+            moved = False
+            for i in range(len(labels)):
+                for j in range(i + 1, len(labels)):
+                    a, b = labels[i], labels[j]
+                    ax, ay = screen[a]
+                    bx, by = screen[b]
+                    dx, dy = bx - ax, by - ay
+                    dist = (dx * dx + dy * dy) ** 0.5
+                    need = radii[a] + radii[b] + self.px(58)
+                    if dist >= need:
+                        continue
+                    if dist < 0.01:
+                        dx, dy, dist = 1.0, 0.0, 1.0
+                    push = (need - dist) / 2.0
+                    ux, uy = dx / dist, dy / dist
+                    screen[a] = (ax - ux * push, ay - uy * push)
+                    screen[b] = (bx + ux * push, by + uy * push)
+                    moved = True
+            if not moved:
+                break
+
+        label_of: dict[str, str] = {}
+        for cluster in self.clusters:
+            for account in cluster.accounts:
+                label_of[account_key(account)] = cluster.label
+
+        # 先画跨档案的「待确认」关系：只有这种才值得在档案层面画出来
+        for edge in self.edges:
+            a, b = label_of.get(edge.a), label_of.get(edge.b)
+            if not a or not b or a == b:
+                continue
+            if edge.score < REVIEW_THRESHOLD:
+                continue
+            if a not in screen or b not in screen:
+                continue
+            x1, y1 = screen[a]
+            x2, y2 = screen[b]
+            canvas.create_line(
+                x1, y1, x2, y2,
+                fill="#e0a45f" if not edge.strong else theme.ACCENT,
+                width=max(1, int(2.0 * zoom)),
+                dash=() if edge.strong else (5, 4),
+            )
+
+        self.cluster_hit: dict[str, tuple[float, float, float]] = {}
+        for index, cluster in enumerate(self.clusters):
+            if cluster.label not in screen:
+                continue
+            cx, cy = screen[cluster.label]
+            count = len(cluster.accounts)
+            radius = radii[cluster.label]
+            self.cluster_hit[cluster.label] = (cx, cy, radius)
+            color = PALETTE[index % len(PALETTE)]
+            expanded = cluster.label in self.expanded
+            canvas.create_oval(
+                cx - radius, cy - radius, cx + radius, cy + radius,
+                fill=_tint(color, 0.18 if not expanded else 0.10),
+                outline=_tint(color, 0.55),
+                width=2,
+                tags=("cluster", f"c:{cluster.label}"),
+            )
+            title_y = cy - radius - self.px(12) if expanded else cy - self.px(6)
+            canvas.create_text(
+                cx, title_y,
+                text=f"{cluster.label} · {count} 个账号",
+                fill=_tint(color, 0.90),
+                font=(theme.FONT, 11, "bold"),
+                tags=("cluster", f"c:{cluster.label}"),
+            )
+            if not expanded:
+                canvas.create_text(
+                    cx, cy + self.px(12),
+                    text=f"{i18n.t('一致度')} {float(getattr(cluster, 'score', 0.0) or 0.0):.2f}"
+                    f" · {i18n.t('点开看账号')}",
+                    fill=theme.MUTED,
+                    font=(theme.FONT, 8),
+                    tags=("cluster", f"c:{cluster.label}"),
+                )
+
+            if not expanded:
+                continue
+            # 展开：成员围在档案圆里侧，可以单独拖动/点选
+            members = [a for a in cluster.accounts if account_key(a) in self.pos]
+            ring = radius * 0.62
+            for position, account in enumerate(members):
+                angle = -math.pi / 2 + 2 * math.pi * position / max(1, len(members))
+                mx = cx + ring * math.cos(angle)
+                my = cy + ring * math.sin(angle)
+                key = account_key(account)
+                selected = key in self.selected
+                mradius = max(7.0, self.px(10) * zoom)
+                canvas.create_oval(
+                    mx - mradius, my - mradius, mx + mradius, my + mradius,
+                    fill=color,
+                    outline=theme.INK if selected else "white",
+                    width=3 if selected else 1,
+                    tags=("node", f"n:{key}"),
+                )
+                canvas.create_text(
+                    mx, my + mradius + self.px(8),
+                    text=account.site if len(account.site) <= 16 else account.site[:15] + "…",
+                    fill=theme.INK,
+                    font=(theme.FONT, 8),
+                    tags=("node", f"n:{key}"),
+                )
+
+        self._draw_legend(width)
+
+    def _hit_cluster(self, x: float, y: float) -> str | None:
+        for label, (cx, cy, radius) in getattr(self, "cluster_hit", {}).items():
+            if (x - cx) ** 2 + (y - cy) ** 2 <= radius ** 2:
+                return label
+        return None
+
+    def toggle_aggregate(self) -> None:
+        self.aggregate = not self.aggregate
+        self.btn_aggregate.configure(
+            text=i18n.t("账号视图") if self.aggregate else i18n.t("档案视图")
+        )
+        self._draw()
+
     def _draw_avatar(self, canvas, account, x: float, y: float, radius: float, muted: bool) -> None:
         """有头像就把缩略图塞进节点里，没有就用首字母。"""
         key = account_key(account)
@@ -508,6 +686,15 @@ class GraphPage(ttk.Frame):
 
     # ---------- 交互 ----------
     def _on_press(self, event) -> None:
+        if self.aggregate and not self.anchor_mode:
+            label = self._hit_cluster(event.x, event.y)
+            if label:
+                if label in self.expanded:
+                    self.expanded.discard(label)
+                else:
+                    self.expanded.add(label)
+                self._draw()
+            return
         key = self._hit(event.x, event.y)
         ctrl = bool(event.state & 0x0004)
         if key is None:
@@ -533,6 +720,8 @@ class GraphPage(ttk.Frame):
         self._update_selected_text()
 
     def _on_drag(self, event) -> None:
+        if self.aggregate and not self.anchor_mode:
+            return
         if not self.drag_key or self.drag_key not in self.pos:
             return
         width = max(self.canvas.winfo_width(), 240)
