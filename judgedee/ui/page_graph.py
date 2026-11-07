@@ -10,8 +10,10 @@
 from __future__ import annotations
 
 import math
+import time
 import tkinter as tk
 import webbrowser
+from pathlib import Path
 from tkinter import messagebox, ttk
 
 from .. import i18n
@@ -75,6 +77,8 @@ class GraphPage(ttk.Frame):
         self.show_weak = True
         self.anchor_mode = False
         self.anchor: dict = {}
+        self.focus_key: str | None = None
+        self._avatar_cache: dict[str, object] = {}
         self.cluster_of: dict[str, Cluster] = {}
         self.zoom = 1.0
         self.ox = 0.0
@@ -118,6 +122,10 @@ class GraphPage(ttk.Frame):
             bar, text=i18n.t("锚定视图"), style="Ghost.TButton", command=self.toggle_anchor
         )
         self.btn_anchor.pack(side="left", padx=(px(8), 0))
+        self.btn_png = ttk.Button(
+            bar, text=i18n.t("导出图片"), style="Ghost.TButton", command=self.export_image
+        )
+        self.btn_png.pack(side="left", padx=(px(8), 0))
 
         hint_row = ttk.Frame(self, style="TFrame")
         hint_row.pack(fill="x", pady=(0, px(6)))
@@ -355,6 +363,16 @@ class GraphPage(ttk.Frame):
                 )
 
         seed_key = str(self.anchor.get("seed") or "") if self.anchor_mode else ""
+        focus = self.focus_key
+        neighbours: set[str] = set()
+        if focus:
+            neighbours.add(focus)
+            for edge in self.edges:
+                if edge.a == focus:
+                    neighbours.add(edge.b)
+                elif edge.b == focus:
+                    neighbours.add(edge.a)
+        placed: list[tuple[float, float]] = []
         for account in self.accounts:
             key = account_key(account)
             if key not in self.pos:
@@ -365,25 +383,111 @@ class GraphPage(ttk.Frame):
             if is_seed:
                 r = max(r, self.px(17))
             selected = key in self.selected
+            base_color = self.color.get(key, theme.ACCENT)
+            # 点了某个节点后，和它没关系的点淡下去，只看这一串
+            muted = bool(focus) and key not in neighbours
+            fill = _tint(base_color, 0.30) if muted else base_color
             canvas.create_oval(
-                x - r,
-                y - r,
-                x + r,
-                y + r,
-                fill=self.color.get(key, theme.ACCENT),
-                outline=theme.INK if (selected or is_seed) else "white",
-                width=3 if (selected or is_seed) else 1,
+                x - r, y - r, x + r, y + r,
+                fill=fill,
+                outline=theme.INK if (selected or is_seed or key == focus) else "white",
+                width=3 if (selected or is_seed or key == focus) else 1,
+                tags=("node", f"n:{key}"),
             )
-            label = account.site[:22]
+            self._draw_avatar(canvas, account, x, y, r * 0.78, muted)
+
+            label = account.site if len(account.site) <= 18 else account.site[:17] + "…"
             if is_seed:
                 label = f"{i18n.t('种子')} · {label}"
+            # 标签避让：和已画过的标签靠太近就往下错一行，避免糊在一起
+            label_y = y + r + self.px(8) * zoom
+            for px_, py_ in placed:
+                if abs(px_ - x) < self.px(56) and abs(py_ - label_y) < self.px(22):
+                    label_y = py_ + self.px(17)
+            placed.append((x, label_y))
             canvas.create_text(
-                x,
-                y + r + self.px(9) * zoom,
+                x, label_y,
                 text=label,
-                fill=theme.INK,
+                fill=theme.MUTED if muted else theme.INK,
                 font=(theme.FONT, 9, "bold" if is_seed else "normal"),
+                tags=("node", f"n:{key}"),
             )
+            canvas.create_text(
+                x, label_y + self.px(12),
+                text=account.username[:24],
+                fill="#93a1b5" if muted else theme.MUTED,
+                font=(theme.FONT, 8),
+                tags=("node", f"n:{key}"),
+            )
+
+        self._draw_legend(width)
+
+    def _draw_avatar(self, canvas, account, x: float, y: float, radius: float, muted: bool) -> None:
+        """有头像就把缩略图塞进节点里，没有就用首字母。"""
+        key = account_key(account)
+        size = max(8, int(radius * 2))
+        photo = self._avatar_cache.get(key)
+        if photo is None and account.avatar_path:
+            photo = self._load_avatar(account.avatar_path, size)
+            self._avatar_cache[key] = photo
+        if photo is not None:
+            canvas.create_image(x, y, image=photo, tags=("node", f"n:{key}"))
+            return
+        initial = (account.display_name or account.username or "?")[:1].upper()
+        canvas.create_text(
+            x, y, text=initial, fill="white",
+            font=(theme.FONT, max(7, int(size / 3)), "bold"),
+            tags=("node", f"n:{key}"),
+        )
+
+    def _load_avatar(self, path: str, size: int):
+        try:
+            from PIL import Image, ImageTk  # 头像比对本身就是可选依赖
+        except Exception:  # noqa: BLE001
+            return None
+        try:
+            image = Image.open(path).convert("RGBA")
+            image = image.resize((size, size))
+            # 圆形遮罩：把四角切掉，看起来像头像而不是小方块
+            mask = Image.new("L", (size, size), 0)
+            from PIL import ImageDraw
+
+            ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
+            image.putalpha(mask)
+            return ImageTk.PhotoImage(image, master=self.canvas)
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _draw_legend(self, width: float) -> None:
+        """左下角放一行图例：颜色到底代表什么。"""
+        if not self.anchor_mode:
+            return
+        canvas = self.canvas
+        items = [
+            (theme.ACCENT, i18n.t("种子")),
+            (theme.OK, i18n.t("强 0.62+")),
+            (theme.WARN, i18n.t("待确认 0.45–0.62")),
+            (theme.GRAY, i18n.t("弱 <0.45")),
+        ]
+        x = self.px(12)
+        y = self.px(12)
+        try:
+            from tkinter import font as tkfont
+
+            measure = tkfont.Font(family=theme.FONT, size=9)
+        except Exception:  # noqa: BLE001
+            measure = None
+        for color, text in items:
+            canvas.create_oval(
+                x, y - self.px(5), x + self.px(10), y + self.px(5),
+                fill=color, outline="",
+            )
+            canvas.create_text(
+                x + self.px(15), y, text=text, anchor="w",
+                fill=theme.MUTED, font=(theme.FONT, 9),
+            )
+            advance = (measure.measure(text) if measure else len(text) * self.px(7)) + self.px(26)
+            x += advance
 
     def _screen_of(self, point: tuple[float, float]) -> tuple[float, float]:
         width = max(self.canvas.winfo_width(), 240)
@@ -409,6 +513,7 @@ class GraphPage(ttk.Frame):
         if key is None:
             if not ctrl:
                 self.selected = []
+                self.focus_key = None
                 self._draw()
                 self._update_selected_text()
             return
@@ -420,6 +525,8 @@ class GraphPage(ttk.Frame):
         else:
             if key not in self.selected:
                 self.selected = [key]
+            # 单击＝聚焦这一串：其余节点淡下去，双击仍然打开主页
+            self.focus_key = None if self.focus_key == key else key
         self.drag_key = key
         self.drag_start = (event.x, event.y)
         self._draw()
@@ -486,6 +593,34 @@ class GraphPage(ttk.Frame):
         self.strong_only = not self.strong_only
         self.btn_strong.configure(text=i18n.t("显示全部证据") if self.strong_only else "只看强证据")
         self.refresh()
+
+    def export_image(self) -> None:
+        """把画布这一块截下来存成 PNG，方便贴到报告或聊天里。"""
+        if not self.accounts:
+            self._write(i18n.t("还没有图可以导出。"))
+            return
+        try:
+            from PIL import ImageGrab
+        except Exception:  # noqa: BLE001
+            self._write(i18n.t("导出图片需要 Pillow，先装一下：pip install pillow"))
+            return
+        self.canvas.update_idletasks()
+        x = self.canvas.winfo_rootx()
+        y = self.canvas.winfo_rooty()
+        w = self.canvas.winfo_width()
+        h = self.canvas.winfo_height()
+        if w < 40 or h < 40:
+            self._write(i18n.t("图谱还没显示出来，等窗口画好再点一次。"))
+            return
+        out_dir = Path(getattr(self.shell.cfg, "get", lambda *_: None)("out_dir") or "results")
+        try:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            target = out_dir / time.strftime("%Y%m%d-%H%M%S-graph.png")
+            ImageGrab.grab(bbox=(x, y, x + w, y + h)).save(target)
+        except OSError as exc:
+            self._write(f"{i18n.t('导出失败')}：{exc}")
+            return
+        self.shell.status(f"{i18n.t('图谱已导出')}：{target}")
 
     def toggle_weak(self) -> None:
         self.show_weak = not self.show_weak
