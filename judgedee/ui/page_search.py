@@ -11,6 +11,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from ..engine import QueryStatus, SearchCancelled, expand_usernames, pick_sites, search
+from .. import clues as clues_mod
 from ..export import export_report, export_run
 from ..history import status_key
 from ..identity import MERGE_THRESHOLD, Account, alias_candidates, cluster_accounts
@@ -89,6 +90,8 @@ class SearchPage(ttk.Frame):
         self.review_pairs: list = []
         self.accounts: list = []
         self.aliases: list = []
+        self.persona: dict | None = None
+        self.persona_clues: list = []
         self.busy_identity = False
         self.source_of: dict[str, str] = {}
 
@@ -500,8 +503,16 @@ class SearchPage(ttk.Frame):
             name = f"{usernames[0]}-等{len(usernames)}人"
         out_dir = Path(self.ent_out.get().strip() or "results")
         run_dir = out_dir / f"{time.strftime('%Y%m%d-%H%M%S')}-report"
+        clues = []
+        if self.persona:
+            clues = clues_mod.merge(clues_mod.from_persona(self.persona), self.persona_clues)
         written, errors = export_report(
-            run_dir, name, self.rows.values(), formats, identity=self.shell.identity or None
+            run_dir,
+            name,
+            self.rows.values(),
+            formats,
+            identity=self.shell.identity or None,
+            clues=clues or None,
         )
         if written:
             self.last_out_dir = str(run_dir)
@@ -873,7 +884,12 @@ class SearchPage(ttk.Frame):
         persona = build_persona(self.accounts, self.clusters, self.review_pairs)
         if self.var_self.get():
             persona = redact_persona(persona)
-        PersonaDialog(self.winfo_toplevel(), persona, self.px)
+        self.persona = persona
+        PersonaDialog(self.winfo_toplevel(), persona, self.px, on_clues=self._keep_clues)
+
+    def _keep_clues(self, extra: list[dict]) -> None:
+        """人物看板里加的 IP / 手机号线索，导出报告时一并带上。"""
+        self.persona_clues = list(extra)
 
     def _on_self_toggle(self) -> None:
         """勾上自查模式就把用户名换成「我自己的」，并提示打码。"""

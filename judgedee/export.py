@@ -383,6 +383,32 @@ def _render_aliases(identity: dict[str, Any]) -> str:
     )
 
 
+def _render_clues(items: list[dict[str, Any]]) -> str:
+    """线索卡：邮箱 / IM / 个人站点 / IP / 手机号，一行一条。"""
+    if not items:
+        return ""
+    rows = []
+    for item in items:
+        note = item.get("note") or ""
+        rows.append(
+            "      <tr>"
+            f"<td>{html.escape(str(item.get('label') or ''))}</td>"
+            f"<td>{html.escape(str(item.get('value') or ''))}</td>"
+            f'<td class="muted">{html.escape(note) if note else "—"}</td>'
+            "</tr>"
+        )
+    return (
+        '<section class="clues">\n'
+        "  <h2>线索</h2>\n"
+        '  <p class="legend">来自各站主页的公开字段，以及你在人物看板里手动核对过的 IP / 手机号。</p>\n'
+        "  <table>\n"
+        "    <thead><tr><th>种类</th><th>值</th><th>说明</th></tr></thead>\n"
+        f"    <tbody>\n{chr(10).join(rows)}\n    </tbody>\n"
+        "  </table>\n"
+        "</section>"
+    )
+
+
 REPORT_HTML = """<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -442,6 +468,7 @@ REPORT_HTML = """<!doctype html>
   </div>
 {graph}
 {aliases}
+{clues}
 {sections}
   <footer>本报告由 JudgeDee 在本机生成，不含任何云端上传。</footer>
 </div>
@@ -484,6 +511,7 @@ def write_report_html(
     username: str,
     rows: Iterable[dict[str, Any]],
     identity: dict[str, Any] | None = None,
+    clues: list[dict[str, Any]] | None = None,
 ) -> int:
     data = _report_rows(rows)
     buckets: dict[str, list[dict[str, Any]]] = {}
@@ -536,6 +564,8 @@ def write_report_html(
             graph_html = _render_graph_svg(geometry)
         aliases_html = _render_aliases(identity)
 
+    clues_html = _render_clues(clues or [])
+
     content = REPORT_HTML.format(
         username=html.escape(username),
         generated=time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -545,6 +575,7 @@ def write_report_html(
         total=len(data),
         graph=graph_html,
         aliases=aliases_html,
+        clues=clues_html,
         sections="\n".join(sections) or '  <p style="color:#6b7280">没有条目。</p>',
     )
     path.write_text(content, encoding="utf-8")
@@ -605,11 +636,13 @@ def export_report(
     rows: Iterable[dict[str, Any]],
     formats: Iterable[str],
     identity: dict[str, Any] | None = None,
+    clues: list[dict[str, Any]] | None = None,
 ) -> tuple[list[Path], list[str]]:
     """导出界面上的当前结果（含复核结论与分组）。
 
     identity 是身份分析的结果（{"accounts", "clusters", "review"}）；
     给了就顺手把图谱和「换名同人」候选画进 HTML 报告。
+    clues 是人物看板里的线索条目，给了就在报告里多一张线索表。
     """
     run_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
@@ -619,7 +652,7 @@ def export_report(
         target = run_dir / f"{username}{suffix}"
         try:
             if fmt == "html":
-                writer(target, username, rows, identity=identity)
+                writer(target, username, rows, identity=identity, clues=clues)
             else:
                 writer(target, username, rows)
             written.append(target)
