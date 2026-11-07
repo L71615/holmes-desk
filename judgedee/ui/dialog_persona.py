@@ -26,8 +26,8 @@ class PersonaDialog(tk.Toplevel):
         self.busy = False
         self.extra_clues: list[dict] = []
         self.transient(master)
-        self.geometry(f"{px(940)}x{px(880)}")
-        self.minsize(px(760), px(640))
+        self.geometry(f"{px(940)}x{px(720)}")
+        self.minsize(px(760), px(560))
 
         header = tk.Frame(self, bg=theme.HEADER, height=px(76))
         header.pack(fill="x")
@@ -63,8 +63,28 @@ class PersonaDialog(tk.Toplevel):
         self.lbl_copied = ttk.Label(bar, text="", style="Hint.TLabel")
         self.lbl_copied.pack(side="left", padx=px(10))
 
-        body = ttk.Frame(self, style="TFrame", padding=px(16))
-        body.pack(fill="both", expand=True)
+        shell = ttk.Frame(self, style="TFrame")
+        shell.pack(fill="both", expand=True)
+
+        self.canvas = tk.Canvas(shell, background=theme.BG, highlightthickness=0)
+        self.canvas.pack(side="left", fill="both", expand=True)
+
+        scroll = ttk.Scrollbar(shell, orient="vertical", command=self.canvas.yview)
+        scroll.pack(side="right", fill="y")
+        self.canvas.configure(yscrollcommand=scroll.set)
+
+        body = ttk.Frame(self.canvas, style="TFrame", padding=px(16))
+        self.body_window = self.canvas.create_window((0, 0), window=body, anchor="nw")
+
+        def _sync_inner(_event=None) -> None:
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+        def _sync_width(event) -> None:
+            self.canvas.itemconfigure(self.body_window, width=event.width)
+
+        body.bind("<Configure>", _sync_inner)
+        self.canvas.bind("<Configure>", _sync_width)
+        self.canvas.bind_all("<MouseWheel>", self._on_wheel)
 
         # 统计卡
         stats = ttk.Frame(body, style="TFrame")
@@ -296,6 +316,11 @@ class PersonaDialog(tk.Toplevel):
             self.geometry(f"+{max(0, x)}+{max(0, y)}")
         except Exception:  # noqa: BLE001
             pass
+
+    def _on_wheel(self, event) -> None:
+        if not self.winfo_exists():
+            return
+        self.canvas.yview_scroll(int(-event.delta / 120), "units")
 
     def _copy(self) -> None:
         try:

@@ -752,12 +752,15 @@ class SearchPage(ttk.Frame):
                 if self.cancel_event.is_set():
                     raise SearchCancelled()
                 self.queue.put(("user", username, index, len(usernames)))
+                # 站点越多越容易出现「未知」：并发压低一点，让站点别把我们当爬虫
+                workers = 20 if len(site_data) <= 150 else 12
                 results = search(
                     username,
                     site_data,
                     notify=_QueueNotify(self.queue, username, self.cancel_event),
                     proxy=proxy,
                     timeout=timeout,
+                    max_workers=workers,
                     cancel=self.cancel_event,
                 )
 
@@ -883,11 +886,19 @@ class SearchPage(ttk.Frame):
         self.review_pairs = review
         self.accounts = list(accounts or [])
         self.extra_pages = sum(a.extra_pages for a in self.accounts)
+        analysed: set[str] = set()
         for cluster in clusters:
             for account in cluster.accounts:
-                row = self.rows.get(f"{account.username}|{account.site}")
+                key = f"{account.username}|{account.site}"
+                row = self.rows.get(key)
                 if row:
                     row["identity"] = cluster.label
+                    analysed.add(key)
+        skipped = 0
+        for key, row in self.rows.items():
+            if row["status_key"] == "claimed" and key not in analysed:
+                row["identity"] = i18n.t("未抓取")
+                skipped += 1
         self._render()
         merged = [c for c in clusters if c.size > 1]
         self.shell.identity = {
@@ -914,6 +925,7 @@ class SearchPage(ttk.Frame):
             f"身份分析完成 · {len(clusters)} 个档案 · {len(merged)} 个合并组 · {len(review)} 组待确认"
             + (f" · 附带抓取 {self.extra_pages} 页" if self.extra_pages else "")
             + (f" · {len(self.aliases)} 组换名建议" if self.aliases else "")
+            + (f" · {skipped} 个主页没抓到" if skipped else "")
         )
 
     # ---------- 换名同人 ----------
@@ -1118,10 +1130,6 @@ class SearchPage(ttk.Frame):
         self.done += 1
         self.progress.configure(value=self.done)
 
-        if not self.var_showall.get() and result.status is not QueryStatus.CLAIMED:
-            self._status(f"检索中 · {self.done}/{self.total}")
-            return
-
         label, tag = STATUS_TEXT.get(result.status, ("未知", "muted"))
         item_id = f"{username}|{result.site_name}"
         key = status_key(result.status)
@@ -1152,7 +1160,7 @@ class SearchPage(ttk.Frame):
             }
         )
 
-        if self.ent_filter.get().strip():
+        if self.ent_filter.get().strip() or not self.var_showall.get():
             self._render()
         else:
             self._insert_row(item_id)
@@ -1208,6 +1216,8 @@ class SearchPage(ttk.Frame):
         for item_id, row in self.rows.items():
             if wanted and row["status_key"] != wanted:
                 continue
+            if not wanted and not self.var_showall.get() and row["status_key"] != "claimed":
+                continue
             haystack = f"{row['site']} {row['url_user']}".lower()
             if keyword and keyword not in haystack:
                 continue
@@ -1231,7 +1241,16 @@ class SearchPage(ttk.Frame):
         if self.cancel_event.is_set():
             return
         elapsed = time.time() - self.started_at
-        self._status(f"完成 · {len(self.rows)} 命中 · {elapsed:.1f} 秒")
+        claimed = sum(1 for row in self.rows.values() if row["status_key"] == "claimed")
+        unknown = sum(1 for row in self.rows.values() if row["status_key"] == "unknown")
+        available = sum(1 for row in self.rows.values() if row["status_key"] == "available")
+        parts = [f"命中 {claimed}"]
+        if unknown:
+            parts.append(f"未知 {unknown}")
+        if available:
+            parts.append(f"未注册 {available}")
+        parts.append(f"{elapsed:.1f} 秒")
+        self._status("完成 · " + " · ".join(parts))
         if self.run_rows:
             try:
                 self.shell.hist.add_run(
