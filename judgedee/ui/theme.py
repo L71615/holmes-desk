@@ -120,7 +120,7 @@ def apply_style(root: tk.Misc, px) -> None:
         "Status.TLabel", background="#e9edf5", foreground="#4b5563", font=(FONT, 9),
     )
 
-    st.configure("TNotebook", background=BG, borderwidth=0, tabmargins=(0, px(2), 0, 0))
+    st.configure("TNotebook", background=BG, borderwidth=0, tabmargins=(px(6), px(2), 0, 0))
     st.configure(
         "TNotebook.Tab", background="#e4e9f2", foreground="#4b5563",
         padding=(px(16), px(7)), font=(FONT, 10), borderwidth=0,

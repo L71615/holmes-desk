@@ -8,6 +8,8 @@
 
 ![Search page](docs/shot-search.png)
 
+English UI: [search](docs/shot-search-en.png) · [trace](docs/shot-trace-en.png)
+
 ## What it does
 
 - **Account search** — 481 sites, queried concurrently by username, tick sites by group or by name.
