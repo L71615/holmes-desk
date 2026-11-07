@@ -32,3 +32,5 @@ shot*.png
 .idea/
 .DS_Store
 .holmesdesk/
+
+_*.py
