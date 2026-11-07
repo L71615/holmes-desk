@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "judgedee"
-version = "2.3.0"
+version = "2.4.0"
 description = "JudgeDee（狄仁杰）：本地人物情报工作台 —— 用户名检索、身份拼图、IP 与手机号归属地，全部离线"
 readme = "README.md"
 requires-python = ">=3.9"

@@ -12,6 +12,8 @@ from tkinter import filedialog, messagebox, ttk
 
 from .. import i18n
 from ..engine import QueryStatus, SearchCancelled, expand_usernames, pick_sites, search
+from .. import anchor as anchor_mod
+from .. import profile as profile_mod
 from .. import clues as clues_mod
 from ..export import export_report, export_run
 from ..history import status_key
@@ -206,16 +208,22 @@ class SearchPage(ttk.Frame):
         self.var_nsfw = tk.BooleanVar(value=bool(self.cfg.get("include_nsfw")))
         self.var_showall = tk.BooleanVar(value=bool(self.cfg.get("show_all")))
         self.var_self = tk.BooleanVar(value=bool(self.cfg.get("self_only")))
-        ttk.Checkbutton(row2, text=i18n.t("包含 NSFW 站点"), variable=self.var_nsfw).grid(
+        ttk.Checkbutton(row2, text=i18n.t("NSFW"), variable=self.var_nsfw).grid(
             row=0, column=4, padx=(0, px(14))
         )
-        ttk.Checkbutton(row2, text=i18n.t("结果里显示未注册"), variable=self.var_showall).grid(row=0, column=5)
+        ttk.Checkbutton(row2, text=i18n.t("显示未注册"), variable=self.var_showall).grid(row=0, column=5)
         ttk.Checkbutton(
             row2,
-            text=i18n.t("自查模式（只查我，个人信息打码）"),
+            text=i18n.t("自查模式"),
             variable=self.var_self,
             command=self._on_self_toggle,
         ).grid(row=0, column=6, padx=(px(14), 0))
+
+        ttk.Label(
+            card,
+            text=i18n.t("自查模式：只查设置里的用户名，人物看板里的邮箱/IM/个人站点打码。"),
+            style="Hint.TLabel",
+        ).pack(anchor="w", pady=(px(4), 0))
 
         row3 = ttk.Frame(card, style="Card.TFrame")
         row3.pack(fill="x", pady=(px(10), 0))
@@ -242,6 +250,24 @@ class SearchPage(ttk.Frame):
         ttk.Checkbutton(
             row4, text=i18n.t("深入主页（跟进简介里的同站链接）"), variable=self.var_deep
         ).grid(row=0, column=3, sticky="w")
+
+        row5 = ttk.Frame(card, style="Card.TFrame")
+        row5.pack(fill="x", pady=(px(8), 0))
+        row5.columnconfigure(1, weight=1)
+
+        ttk.Label(
+            row5, text=i18n.t("基准账号（可选）"), style="Field.TLabel"
+        ).grid(row=0, column=0, sticky="w", padx=(0, px(8)))
+        self.ent_anchor = ttk.Entry(row5)
+        self.ent_anchor.grid(row=0, column=1, sticky="ew")
+        self.ent_anchor.insert(0, self.cfg.get("anchor") or "")
+        self.btn_anchor = ttk.Button(
+            row5,
+            text=i18n.t("基准扫描"),
+            style="Ghost.TButton",
+            command=self.start_anchor,
+        )
+        self.btn_anchor.grid(row=0, column=2, padx=(px(6), 0))
 
         actions = ttk.Frame(right, style="TFrame")
         actions.pack(fill="x", pady=(px(10), px(6)))
@@ -550,6 +576,114 @@ class SearchPage(ttk.Frame):
         else:
             selected, missing = lib.selection(), []
         return selected, missing
+
+    # ---------- 基准账号扫描 ----------
+
+    def start_anchor(self) -> None:
+        """以「确定是本人」的账号为基准，找同一个人。"""
+        raw = self.ent_anchor.get().strip()
+        if not raw:
+            messagebox.showinfo(i18n.t("基准扫描"), i18n.t("先填一个基准账号，例如 github L71615"))
+            return
+        if self.busy or self.busy_identity:
+            messagebox.showinfo(i18n.t("基准扫描"), i18n.t("等当前任务跑完再试"))
+            return
+
+        sites, missing = self._resolve_sites()
+        if not sites:
+            messagebox.showwarning(i18n.t("没有可用的站点"), i18n.t("先在左边勾选分组或站点"))
+            return
+        if missing:
+            self.shell.status(i18n.t("部分站点没找到：") + "、".join(missing[:3]))
+
+        try:
+            seed = anchor_mod.parse_seed(raw, sites)
+        except ValueError as exc:
+            messagebox.showwarning(i18n.t("基准账号看不懂"), str(exc))
+            return
+
+        self.cfg["anchor"] = raw
+        proxy = self.ent_proxy.get().strip() or None
+        timeout = float(self.spn_timeout.get() or 20)
+        deep = bool(self.var_deep.get())
+
+        self.btn_anchor.configure(state="disabled")
+        self.shell.status(f"{i18n.t('基准扫描')}：{seed.label()}")
+        self.shell.pages["search"].busy = self.busy = True
+
+        thread = threading.Thread(
+            target=self._anchor_worker,
+            args=(seed, dict(sites), proxy, timeout, deep),
+            daemon=True,
+        )
+        thread.start()
+
+    def _anchor_worker(self, seed, sites, proxy, timeout, deep) -> None:
+        try:
+            self.queue.put(("anchor_progress", i18n.t("抓基准账号的主页…")))
+            infos = [(seed.username, seed.site, seed.url)]
+            fetched = profile_mod.collect(
+                infos, proxy=proxy, timeout=timeout, workers=1, deep=deep, max_pages=2
+            )
+            if fetched:
+                seed.account = anchor_mod._to_account(fetched[0])
+
+            candidates = anchor_mod.collect_candidates(
+                seed,
+                sites,
+                proxy=proxy,
+                timeout=timeout,
+                deep=deep,
+                on_progress=lambda msg: self.queue.put(("anchor_progress", msg)),
+            )
+            self.queue.put(("anchor_done", seed, candidates))
+        except Exception as exc:  # noqa: BLE001
+            self.queue.put(("anchor_error", str(exc)))
+
+    def _apply_anchor(self, seed, candidates) -> None:
+        kept = [
+            item
+            for item in candidates
+            if item.score >= anchor_mod.REVIEW or item.source in (anchor_mod.SOURCE_SAME, anchor_mod.SOURCE_SEED)
+        ]
+        kept.sort(key=lambda item: (-item.score, item.site.lower()))
+        self.source_of.clear()
+        self.rows = {}
+        for item in kept:
+            if item.source == anchor_mod.SOURCE_SEED:
+                grade = i18n.t("种子")
+            elif item.score >= anchor_mod.STRONG:
+                grade = i18n.t("强")
+            elif item.score >= anchor_mod.REVIEW:
+                grade = i18n.t("待确认")
+            else:
+                grade = i18n.t("弱")
+            self.source_of[item.username] = f"{i18n.t('基准')} · {item.source} · {item.score:.2f} · {grade}"
+            self.rows[f"{item.username}|{item.site}"] = {
+                "username": item.username,
+                "site": item.site,
+                "group": self.shell.lib.group_of(item.site) or "",
+                "url_user": item.url,
+                "status": i18n.t("已注册"),
+                "status_key": "claimed",
+                "verdict": "",
+                "verdict_tag": "",
+                "identity": "",
+                "source": self.source_of[item.username],
+                "http": "",
+                "time": "",
+                "tag": "claimed",
+            }
+        self._render()
+        strong = sum(1 for item in kept if item.strong)
+        self.shell.status(
+            f"{i18n.t('基准扫描完成')}：{len(kept)} 个候选，{strong} 个强证据 · {seed.label()}"
+        )
+        self.btn_graph.configure(state="normal" if self.rows else "disabled")
+
+    def _anchor_finish(self) -> None:
+        self.busy = False
+        self.btn_anchor.configure(state="normal")
 
     def start_search(self) -> None:
         if self.busy:
@@ -960,6 +1094,15 @@ class SearchPage(ttk.Frame):
                     self.btn_variants.configure(state="normal")
                     self._status("变体扫查失败")
                     messagebox.showerror("变体扫查失败", message[1])
+                elif kind == "anchor_progress":
+                    self._status(str(message[1]))
+                elif kind == "anchor_done":
+                    self._apply_anchor(message[1], message[2])
+                    self._anchor_finish()
+                elif kind == "anchor_error":
+                    self._anchor_finish()
+                    self._status(i18n.t("基准扫描失败"))
+                    messagebox.showerror(i18n.t("基准扫描失败"), str(message[1]))
                 elif kind == "cancelled":
                     self._status("已停止")
                 elif kind == "error":

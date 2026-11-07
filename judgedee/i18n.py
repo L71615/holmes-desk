@@ -255,6 +255,25 @@ CATALOG.update(
         "多个用户名用空格或逗号分隔；填 {?} 会自动展开成 _ - . 三种变体": (
             "Separate usernames with spaces or commas; {?} expands to _ - . variants"
         ),
+        # 基准账号扫描
+        "基准账号（可选）": "Anchor account (optional)",
+        "基准扫描": "Anchor scan",
+        "基准": "anchor",
+        "先填一个基准账号，例如 github L71615": (
+            "Enter an anchor account first, e.g. github L71615"
+        ),
+        "等当前任务跑完再试": "Wait for the current task to finish",
+        "基准账号看不懂": "Cannot read that anchor",
+        "抓基准账号的主页…": "Fetching the anchor profile…",
+        "基准扫描完成": "Anchor scan finished",
+        "基准扫描失败": "Anchor scan failed",
+        "种子": "seed",
+        "强": "strong",
+        "待确认": "review",
+        "弱": "weak",
+        "自查模式：只查设置里的用户名，人物看板里的邮箱/IM/个人站点打码。": (
+            "Self-check: only the username from Settings; emails / IM / domains are masked on the persona board."
+        ),
     }
 )
 
