@@ -6,6 +6,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from .. import i18n
 from ..sitelib import DEFAULT_GROUP, ERROR_TYPES, ERROR_TYPE_TEXT, validate_site
 from . import theme
 
@@ -101,20 +102,20 @@ class SiteDialog(tk.Toplevel):
         self.var_enabled = tk.BooleanVar(value=self.lib.is_enabled(name) if name else True)
         checks = ttk.Frame(card, style="Card.TFrame")
         checks.grid(row=row, column=1, sticky="w", pady=(0, px(4)))
-        ttk.Checkbutton(checks, text="NSFW 站点", variable=self.var_nsfw).pack(side="left")
-        ttk.Checkbutton(checks, text="启用", variable=self.var_enabled).pack(side="left", padx=(px(14), 0))
+        ttk.Checkbutton(checks, text=i18n.t("NSFW 站点"), variable=self.var_nsfw).pack(side="left")
+        ttk.Checkbutton(checks, text=i18n.t("启用"), variable=self.var_enabled).pack(side="left", padx=(px(14), 0))
         row += 1
 
         if name and name in self.lib.base:
             ttk.Label(
-                card, text="这是内置站点：改动会作为覆盖保存在用户配置里，可随时「恢复内置」。",
+                card, text=i18n.t("这是内置站点：改动会作为覆盖保存在用户配置里，可随时「恢复内置」。"),
                 style="Hint.TLabel", wraplength=px(420),
             ).grid(row=row, column=0, columnspan=2, sticky="w", pady=(px(6), 0))
 
         buttons = ttk.Frame(self, style="TFrame")
         buttons.pack(fill="x", padx=px(12), pady=(0, px(12)))
-        ttk.Button(buttons, text="保存", style="Accent.TButton", command=self._save).pack(side="right")
-        ttk.Button(buttons, text="取消", style="Ghost.TButton", command=self.destroy).pack(
+        ttk.Button(buttons, text=i18n.t("保存"), style="Accent.TButton", command=self._save).pack(side="right")
+        ttk.Button(buttons, text=i18n.t("取消"), style="Ghost.TButton", command=self.destroy).pack(
             side="right", padx=(0, px(8))
         )
 
@@ -192,32 +193,32 @@ class SitesPage(ttk.Frame):
         top = ttk.Frame(self, style="Card.TFrame", padding=px(12))
         top.pack(fill="x")
 
-        ttk.Label(top, text="站点库", style="Field.TLabel").pack(side="left", padx=(0, px(12)))
+        ttk.Label(top, text=i18n.t("站点库"), style="Field.TLabel").pack(side="left", padx=(0, px(12)))
         self.ent_search = ttk.Entry(top, width=24)
         self.ent_search.pack(side="left")
         self.ent_search.bind("<KeyRelease>", lambda _e: self.refresh())
 
-        ttk.Label(top, text="分组", style="Hint.TLabel").pack(side="left", padx=(px(12), px(6)))
+        ttk.Label(top, text=i18n.t("分组"), style="Hint.TLabel").pack(side="left", padx=(px(12), px(6)))
         self.cmb_group = ttk.Combobox(top, width=14, state="readonly")
         self.cmb_group.pack(side="left")
         self.cmb_group.bind("<<ComboboxSelected>>", lambda _e: self.refresh())
 
-        ttk.Button(top, text="导出…", style="Ghost.TButton", command=self._export).pack(side="right")
-        ttk.Button(top, text="导入…", style="Ghost.TButton", command=self._import).pack(
+        ttk.Button(top, text=i18n.t("导出…"), style="Ghost.TButton", command=self._export).pack(side="right")
+        ttk.Button(top, text=i18n.t("导入…"), style="Ghost.TButton", command=self._import).pack(
             side="right", padx=(0, px(8))
         )
-        ttk.Button(top, text="新增站点", style="Accent.TButton", command=self._add).pack(
+        ttk.Button(top, text=i18n.t("新增站点"), style="Accent.TButton", command=self._add).pack(
             side="right", padx=(0, px(8))
         )
 
         actions = ttk.Frame(self, style="TFrame")
         actions.pack(fill="x", pady=(px(8), px(6)))
-        ttk.Button(actions, text="编辑", style="Ghost.TButton", command=self._edit).pack(side="left")
-        ttk.Button(actions, text="启用 / 禁用", style="Ghost.TButton", command=self._toggle).pack(
+        ttk.Button(actions, text=i18n.t("编辑"), style="Ghost.TButton", command=self._edit).pack(side="left")
+        ttk.Button(actions, text=i18n.t("启用 / 禁用"), style="Ghost.TButton", command=self._toggle).pack(
             side="left", padx=px(8)
         )
-        ttk.Button(actions, text="恢复内置", style="Ghost.TButton", command=self._reset).pack(side="left")
-        ttk.Button(actions, text="删除自定义站点", style="Danger.TButton", command=self._delete).pack(
+        ttk.Button(actions, text=i18n.t("恢复内置"), style="Ghost.TButton", command=self._reset).pack(side="left")
+        ttk.Button(actions, text=i18n.t("删除自定义站点"), style="Danger.TButton", command=self._delete).pack(
             side="left", padx=px(8)
         )
         self.lbl_info = ttk.Label(actions, text="", style="TLabel", foreground=theme.MUTED)

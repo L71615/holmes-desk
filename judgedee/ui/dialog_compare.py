@@ -6,6 +6,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import ttk
 
+from .. import i18n
 from ..history import STATUS_TEXT
 from . import theme
 
@@ -31,7 +32,7 @@ class CompareDialog(tk.Toplevel):
         header.pack_propagate(False)
         tk.Label(
             header,
-            text="两次检索对比",
+            text=i18n.t("两次检索对比"),
             bg=theme.HEADER,
             fg="white",
             font=(theme.FONT, 14, "bold"),
@@ -75,8 +76,8 @@ class CompareDialog(tk.Toplevel):
 
         bar = ttk.Frame(body, style="TFrame")
         bar.pack(side="bottom", fill="x", pady=(px(10), 0))
-        ttk.Button(bar, text="打开链接", style="Ghost.TButton", command=self._open).pack(side="left")
-        ttk.Button(bar, text="关闭", command=self.destroy).pack(side="right")
+        ttk.Button(bar, text=i18n.t("打开链接"), style="Ghost.TButton", command=self._open).pack(side="left")
+        ttk.Button(bar, text=i18n.t("关闭"), command=self.destroy).pack(side="right")
 
         card = ttk.Frame(body, style="Card.TFrame", padding=px(8))
         card.pack(fill="both", expand=True)

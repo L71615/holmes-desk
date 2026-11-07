@@ -7,6 +7,7 @@ import webbrowser
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from .. import i18n
 from ..history import STATUS_TEXT
 from ..platform_win import open_path
 from . import theme
@@ -26,15 +27,15 @@ class HistoryPage(ttk.Frame):
 
         actions = ttk.Frame(self, style="TFrame")
         actions.pack(fill="x", pady=(0, px(8)))
-        ttk.Button(actions, text="刷新", style="Ghost.TButton", command=self.refresh).pack(side="left")
-        ttk.Button(actions, text="删除选中", style="Danger.TButton", command=self._delete).pack(
+        ttk.Button(actions, text=i18n.t("刷新"), style="Ghost.TButton", command=self.refresh).pack(side="left")
+        ttk.Button(actions, text=i18n.t("删除选中"), style="Danger.TButton", command=self._delete).pack(
             side="left", padx=px(8)
         )
-        ttk.Button(actions, text="清空历史", style="Ghost.TButton", command=self._clear).pack(side="left")
-        ttk.Button(actions, text="和上一次对比", style="Ghost.TButton", command=self._compare).pack(
+        ttk.Button(actions, text=i18n.t("清空历史"), style="Ghost.TButton", command=self._clear).pack(side="left")
+        ttk.Button(actions, text=i18n.t("和上一次对比"), style="Ghost.TButton", command=self._compare).pack(
             side="left", padx=(px(8), 0)
         )
-        ttk.Button(actions, text="打开结果目录", style="Ghost.TButton", command=self._open_dir).pack(
+        ttk.Button(actions, text=i18n.t("打开结果目录"), style="Ghost.TButton", command=self._open_dir).pack(
             side="left", padx=px(8)
         )
         self.lbl_info = ttk.Label(actions, text="", style="TLabel", foreground=theme.MUTED)
@@ -65,7 +66,7 @@ class HistoryPage(ttk.Frame):
         detail_card = ttk.Frame(self, style="Card.TFrame", padding=px(10))
         detail_card.pack(fill="both", expand=True, pady=(px(8), 0))
 
-        ttk.Label(detail_card, text="这次的结果", style="Field.TLabel").pack(anchor="w", pady=(0, px(6)))
+        ttk.Label(detail_card, text=i18n.t("这次的结果"), style="Field.TLabel").pack(anchor="w", pady=(0, px(6)))
 
         columns2 = (
             ("user", "用户名", 160, "w"),

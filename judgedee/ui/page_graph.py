@@ -13,6 +13,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import messagebox, ttk
 
+from .. import i18n
 from ..graph import Edge, account_key, build_edges, cluster_layout, degrees, layout, node_radius
 from ..identity import REVIEW_THRESHOLD, Account, Cluster, score_pair
 from . import theme
@@ -75,33 +76,33 @@ class GraphPage(ttk.Frame):
         bar.pack(fill="x", pady=(0, px(8)))
 
         self.btn_layout = ttk.Button(
-            bar, text="重新布局", style="Accent.TButton", command=self.relayout
+            bar, text=i18n.t("重新布局"), style="Accent.TButton", command=self.relayout
         )
         self.btn_layout.pack(side="left")
         self.btn_strong = ttk.Button(
-            bar, text="只看强证据", style="Ghost.TButton", command=self.toggle_strong
+            bar, text=i18n.t("只看强证据"), style="Ghost.TButton", command=self.toggle_strong
         )
         self.btn_strong.pack(side="left", padx=px(8))
         self.btn_weak = ttk.Button(
-            bar, text="隐藏弱证据", style="Ghost.TButton", command=self.toggle_weak
+            bar, text=i18n.t("隐藏弱证据"), style="Ghost.TButton", command=self.toggle_weak
         )
         self.btn_weak.pack(side="left", padx=(0, px(8)))
         self.btn_merge = ttk.Button(
-            bar, text="合并为同一人", style="Ghost.TButton", command=self.mark_same, state="disabled"
+            bar, text=i18n.t("合并为同一人"), style="Ghost.TButton", command=self.mark_same, state="disabled"
         )
         self.btn_merge.pack(side="left", padx=(0, px(8)))
         self.btn_split = ttk.Button(
-            bar, text="标记为不同人", style="Ghost.TButton", command=self.mark_different, state="disabled"
+            bar, text=i18n.t("标记为不同人"), style="Ghost.TButton", command=self.mark_different, state="disabled"
         )
         self.btn_split.pack(side="left", padx=(0, px(8)))
         self.btn_clear = ttk.Button(
-            bar, text="清除该对约束", style="Ghost.TButton", command=self.clear_selection_constraint
+            bar, text=i18n.t("清除该对约束"), style="Ghost.TButton", command=self.clear_selection_constraint
         )
         self.btn_clear.pack(side="left")
 
         self.lbl_hint = ttk.Label(
             bar,
-            text="底色＝同一档案 · 圈大＝证据强 · 深蓝实线＝强证据",
+            text=i18n.t("底色＝同一档案 · 圈大＝证据强 · 深蓝实线＝强证据"),
             style="Hint.TLabel",
         )
         self.lbl_hint.pack(side="right")
@@ -130,7 +131,7 @@ class GraphPage(ttk.Frame):
         side = ttk.Frame(body, style="Card.TFrame", padding=px(10), width=px(300))
         side.grid(row=0, column=1, sticky="nsew")
         side.grid_propagate(False)
-        ttk.Label(side, text="选中节点", style="Card.TLabel", font=(theme.FONT, 10, "bold")).pack(
+        ttk.Label(side, text=i18n.t("选中节点"), style="Card.TLabel", font=(theme.FONT, 10, "bold")).pack(
             anchor="w"
         )
         self.txt = tk.Text(
@@ -401,12 +402,12 @@ class GraphPage(ttk.Frame):
 
     def toggle_strong(self) -> None:
         self.strong_only = not self.strong_only
-        self.btn_strong.configure(text="显示全部证据" if self.strong_only else "只看强证据")
+        self.btn_strong.configure(text=i18n.t("显示全部证据") if self.strong_only else "只看强证据")
         self.refresh()
 
     def toggle_weak(self) -> None:
         self.show_weak = not self.show_weak
-        self.btn_weak.configure(text="显示弱证据" if not self.show_weak else "隐藏弱证据")
+        self.btn_weak.configure(text=i18n.t("显示弱证据") if not self.show_weak else "隐藏弱证据")
         self._draw()
 
     # ---------- 纠错 ----------

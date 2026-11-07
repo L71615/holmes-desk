@@ -7,6 +7,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk
 
+from .. import i18n
 from .. import clues as clue_mod
 from .. import trace
 from ..persona import CATEGORY_ORDER
@@ -57,8 +58,8 @@ class PersonaDialog(tk.Toplevel):
 
         bar = tk.Frame(self, bg=theme.BG)
         bar.pack(side="bottom", fill="x", padx=px(16), pady=(px(2), px(14)))
-        ttk.Button(bar, text="复制摘要", style="Accent.TButton", command=self._copy).pack(side="left")
-        ttk.Button(bar, text="关闭", command=self.destroy).pack(side="right")
+        ttk.Button(bar, text=i18n.t("复制摘要"), style="Accent.TButton", command=self._copy).pack(side="left")
+        ttk.Button(bar, text=i18n.t("关闭"), command=self.destroy).pack(side="right")
         self.lbl_copied = ttk.Label(bar, text="", style="Hint.TLabel")
         self.lbl_copied.pack(side="left", padx=px(10))
 
@@ -86,7 +87,7 @@ class PersonaDialog(tk.Toplevel):
         # 摘要
         summary = ttk.Frame(body, style="Card.TFrame", padding=px(12))
         summary.pack(fill="x", pady=(px(10), 0))
-        ttk.Label(summary, text="一句话结论", style="Field.TLabel").pack(anchor="w")
+        ttk.Label(summary, text=i18n.t("一句话结论"), style="Field.TLabel").pack(anchor="w")
         ttk.Label(
             summary,
             text=persona["summary"],
@@ -142,13 +143,13 @@ class PersonaDialog(tk.Toplevel):
                         style="Card.TLabel",
                     ).pack(anchor="w", pady=(px(2), 0))
             else:
-                ttk.Label(card, text="—", style="Hint.TLabel").pack(anchor="w")
+                ttk.Label(card, text=i18n.t("—"), style="Hint.TLabel").pack(anchor="w")
 
         # 冲突
         if persona["conflicts"]:
             conflict = ttk.Frame(body, style="Card.TFrame", padding=px(12))
             conflict.pack(fill="x", pady=(px(10), 0))
-            ttk.Label(conflict, text="各站说法不一致", style="Field.TLabel").pack(anchor="w")
+            ttk.Label(conflict, text=i18n.t("各站说法不一致"), style="Field.TLabel").pack(anchor="w")
             for item in persona["conflicts"]:
                 ttk.Label(
                     conflict,
@@ -173,7 +174,7 @@ class PersonaDialog(tk.Toplevel):
 
         head = ttk.Frame(card, style="Card.TFrame")
         head.pack(fill="x")
-        ttk.Label(head, text="线索", style="Field.TLabel").pack(side="left")
+        ttk.Label(head, text=i18n.t("线索"), style="Field.TLabel").pack(side="left")
         self.lbl_clue_counts = ttk.Label(head, text="", style="Hint.TLabel")
         self.lbl_clue_counts.pack(side="left", padx=(px(10), 0))
 
@@ -189,16 +190,16 @@ class PersonaDialog(tk.Toplevel):
         self.ent_clue.grid(row=0, column=0, sticky="ew", ipady=px(3))
         self.ent_clue.bind("<Return>", lambda _e: self.add_clue())
         self.btn_clue = ttk.Button(
-            row, text="查一下并加入", style="Accent.TButton", command=self.add_clue
+            row, text=i18n.t("查一下并加入"), style="Accent.TButton", command=self.add_clue
         )
         self.btn_clue.grid(row=0, column=1, padx=(px(8), 0))
-        ttk.Button(row, text="复制线索", style="Ghost.TButton", command=self._copy_clues).grid(
+        ttk.Button(row, text=i18n.t("复制线索"), style="Ghost.TButton", command=self._copy_clues).grid(
             row=0, column=2, padx=(px(6), 0)
         )
 
         self.lbl_clue_hint = ttk.Label(
             card,
-            text="贴一个 IP 或手机号（带 +86 更准），解析结果会记在这张卡上，也会进报告。",
+            text=i18n.t("贴一个 IP 或手机号（带 +86 更准），解析结果会记在这张卡上，也会进报告。"),
             style="Hint.TLabel",
         )
         self.lbl_clue_hint.pack(anchor="w", pady=(px(6), 0))
@@ -212,23 +213,23 @@ class PersonaDialog(tk.Toplevel):
         items = self._clue_items()
         self.lbl_clue_counts.configure(text=clue_mod.summary(items))
         if not items:
-            self.lbl_clues.configure(text="还没有可对外核实的线索（主页没公开邮箱 / IM / 外链）")
+            self.lbl_clues.configure(text=i18n.t("还没有可对外核实的线索（主页没公开邮箱 / IM / 外链）"))
             return
         lines = []
         for item in items:
             note = f"· {item['note']}" if item.get("note") else ""
             lines.append(f"{item['label']}：{item['value']}  {note}".rstrip())
-        self.lbl_clues.configure(text="\n".join(lines))
+        self.lbl_clues.configure(text=i18n.t("\n").join(lines))
 
     def add_clue(self) -> None:
         if self.busy:
             return
         text = self.ent_clue.get().strip()
         if not text:
-            self.lbl_clue_hint.configure(text="先贴一个 IP 或手机号", foreground=theme.BAD)
+            self.lbl_clue_hint.configure(text=i18n.t("先贴一个 IP 或手机号"), foreground=theme.BAD)
             return
         self.busy = True
-        self.btn_clue.configure(state="disabled", text="解析中…")
+        self.btn_clue.configure(state="disabled", text=i18n.t("解析中…"))
         self.lbl_clue_hint.configure(text=f"正在解析 {text} …", foreground=theme.MUTED)
 
         def runner() -> None:
@@ -254,7 +255,7 @@ class PersonaDialog(tk.Toplevel):
             self.after(150, self._pump_clue)
             return
         self.busy = False
-        self.btn_clue.configure(state="normal", text="查一下并加入")
+        self.btn_clue.configure(state="normal", text=i18n.t("查一下并加入"))
         entry = None
         if payload.get("_kind") == "ip":
             entry = clue_mod.ip_entry(payload)
@@ -279,12 +280,12 @@ class PersonaDialog(tk.Toplevel):
     def _copy_clues(self) -> None:
         text = clue_mod.to_text(self._clue_items())
         if not text:
-            self.lbl_clue_hint.configure(text="还没有线索可复制", foreground=theme.BAD)
+            self.lbl_clue_hint.configure(text=i18n.t("还没有线索可复制"), foreground=theme.BAD)
             return
         try:
             self.clipboard_clear()
             self.clipboard_append(text)
-            self.lbl_clue_hint.configure(text="线索已复制到剪贴板", foreground=theme.MUTED)
+            self.lbl_clue_hint.configure(text=i18n.t("线索已复制到剪贴板"), foreground=theme.MUTED)
         except Exception:  # noqa: BLE001
             pass
 
@@ -300,6 +301,6 @@ class PersonaDialog(tk.Toplevel):
         try:
             self.clipboard_clear()
             self.clipboard_append(self.persona["summary"])
-            self.lbl_copied.configure(text="已复制到剪贴板")
+            self.lbl_copied.configure(text=i18n.t("已复制到剪贴板"))
         except Exception:  # noqa: BLE001
-            self.lbl_copied.configure(text="复制失败")
+            self.lbl_copied.configure(text=i18n.t("复制失败"))

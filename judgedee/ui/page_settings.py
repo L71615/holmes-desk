@@ -8,7 +8,7 @@ import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from .. import __app_name_zh__, __version__
+from .. import __app_name_zh__, __version__, i18n
 from .. import config as cfg
 from ..paths import SITE_DATA_PATH
 from . import theme
@@ -100,8 +100,26 @@ class SettingsPage(ttk.Frame):
             variable=self.var_self_default,
         ).grid(row=7, column=1, sticky="w")
 
-        ttk.Button(card, text="保存设置", style="Accent.TButton", command=self._save).grid(
-            row=8, column=1, sticky="e", pady=(px(12), 0)
+        ttk.Label(card, text=i18n.t("语言"), style="Field.TLabel").grid(
+            row=8, column=0, sticky="w", pady=(0, px(8))
+        )
+        lang_row = ttk.Frame(card, style="TFrame")
+        lang_row.grid(row=8, column=1, sticky="w", pady=(0, px(8)))
+        self.cmb_lang = ttk.Combobox(
+            lang_row,
+            state="readonly",
+            values=[f"{i18n.LANG_LABELS[code]}" for code in i18n.LANGS],
+            width=14,
+        )
+        current_lang = str(self.cfg.get("language") or "zh")
+        self.cmb_lang.current(i18n.LANGS.index(current_lang) if current_lang in i18n.LANGS else 0)
+        self.cmb_lang.pack(side="left")
+        ttk.Label(
+            lang_row, text=i18n.t("界面语言（重启后生效）"), style="Hint.TLabel"
+        ).pack(side="left", padx=(px(10), 0))
+
+        ttk.Button(card, text=i18n.t("保存设置"), style="Accent.TButton", command=self._save).grid(
+            row=9, column=1, sticky="e", pady=(px(12), 0)
         )
 
         data_card = ttk.Frame(self.body, style="Card.TFrame", padding=px(16))
@@ -209,6 +227,9 @@ class SettingsPage(ttk.Frame):
                 "show_all": self.var_showall.get(),
                 "self_usernames": self.ent_self.get().strip(),
                 "self_only": self.var_self_default.get(),
+                "language": i18n.LANGS[self.cmb_lang.current()]
+                if self.cmb_lang.current() >= 0
+                else "zh",
             }
         )
         for key, var in self.var_formats.items():
@@ -218,9 +239,9 @@ class SettingsPage(ttk.Frame):
         try:
             cfg.save(data)
         except Exception as exc:  # noqa: BLE001
-            messagebox.showerror("保存失败", str(exc))
+            messagebox.showerror(i18n.t("保存失败"), str(exc))
             return
-        self.shell.status("设置已保存")
+        self.shell.status(i18n.t("设置已保存"))
 
     def _clear_history(self) -> None:
         if not messagebox.askyesno("清空历史", "所有检索历史都会被删除，确定？"):

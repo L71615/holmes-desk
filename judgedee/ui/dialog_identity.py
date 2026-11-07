@@ -12,6 +12,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import ttk
 
+from .. import i18n
 from ..identity import Cluster, score_pair
 from . import theme
 
@@ -33,7 +34,7 @@ class IdentityDialog(tk.Toplevel):
         header.pack_propagate(False)
         tk.Label(
             header,
-            text="身份档案",
+            text=i18n.t("身份档案"),
             bg=theme.HEADER,
             fg="white",
             font=(theme.FONT, 14, "bold"),
@@ -55,12 +56,12 @@ class IdentityDialog(tk.Toplevel):
 
         left = ttk.Frame(body, style="Card.TFrame", padding=px(10))
         left.grid(row=0, column=0, sticky="nsew", padx=(0, px(10)))
-        ttk.Label(left, text="档案与账号", style="Card.TLabel", font=(theme.FONT, 10, "bold")).pack(
+        ttk.Label(left, text=i18n.t("档案与账号"), style="Card.TLabel", font=(theme.FONT, 10, "bold")).pack(
             anchor="w", pady=(0, px(6))
         )
         self.tree = ttk.Treeview(left, columns=("info",), show="tree headings", height=18)
-        self.tree.heading("#0", text="档案 / 站点")
-        self.tree.heading("info", text="昵称")
+        self.tree.heading("#0", text=i18n.t("档案 / 站点"))
+        self.tree.heading("info", text=i18n.t("昵称"))
         self.tree.column("#0", width=self.px(240), anchor="w")
         self.tree.column("info", width=self.px(190), anchor="w")
         vsb = ttk.Scrollbar(left, orient="vertical", command=self.tree.yview)
@@ -73,7 +74,7 @@ class IdentityDialog(tk.Toplevel):
 
         right = ttk.Frame(body, style="Card.TFrame", padding=px(10))
         right.grid(row=0, column=1, sticky="nsew")
-        ttk.Label(right, text="证据", style="Card.TLabel", font=(theme.FONT, 10, "bold")).pack(
+        ttk.Label(right, text=i18n.t("证据"), style="Card.TLabel", font=(theme.FONT, 10, "bold")).pack(
             anchor="w", pady=(0, px(6))
         )
         self.txt = tk.Text(

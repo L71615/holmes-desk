@@ -11,6 +11,7 @@ from .. import config as cfg
 from ..constraints import Constraints
 from ..history import History
 from ..paths import ICON_PATH
+from .. import __app_name_zh__, __version__, i18n
 from ..platform_win import enable_dpi_awareness, open_path
 from ..sitelib import SiteLibrary
 from . import theme
@@ -23,6 +24,10 @@ NAV_ITEMS = (
     ("history", "历史"),
     ("settings", "设置"),
 )
+
+
+def nav_label(key: str, zh: str) -> str:
+    return i18n.t(zh)
 
 
 class Shell(tk.Tk):
@@ -95,17 +100,17 @@ class Shell(tk.Tk):
         header.pack(fill="x")
         header.pack_propagate(False)
         tk.Label(
-            header, text=__app_name_zh__, bg=theme.HEADER, fg="white",
+            header, text=i18n.t(__app_name_zh__), bg=theme.HEADER, fg="white",
             font=(theme.FONT, 16, "bold"),
         ).pack(side="left", padx=px(24))
         tk.Label(
-            header, text=f"本地单机 · v{__version__}", bg=theme.HEADER, fg="#93a4c4",
+            header, text=f"{i18n.t('本地单机')} · v{__version__}", bg=theme.HEADER, fg="#93a4c4",
             font=(theme.FONT, 9),
         ).pack(side="left", pady=(px(8), 0))
 
         status = ttk.Frame(self, style="Status.TFrame")
         status.pack(side="bottom", fill="x")
-        self.lbl_status = ttk.Label(status, text="就绪", style="Status.TLabel")
+        self.lbl_status = ttk.Label(status, text=i18n.t("就绪"), style="Status.TLabel")
         self.lbl_status.pack(side="left", padx=px(16), pady=px(5))
         self.lbl_sites = ttk.Label(status, text="", style="Status.TLabel")
         self.lbl_sites.pack(side="right", padx=px(16), pady=px(5))
@@ -119,7 +124,7 @@ class Shell(tk.Tk):
 
         for key, label in NAV_ITEMS:
             button = ttk.Button(
-                side, text=label, style="Nav.TButton", command=lambda k=key: self.show(k)
+                side, text=nav_label(key, label), style="Nav.TButton", command=lambda k=key: self.show(k)
             )
             button.pack(fill="x", padx=px(10), pady=px(3))
             self.nav_buttons[key] = button
@@ -187,6 +192,12 @@ class Shell(tk.Tk):
     def refresh_site_count(self) -> None:
         total = self.lib.count()
         enabled = len(self.lib.enabled_names())
+        if i18n.is_en():
+            if enabled == total:
+                self.lbl_sites.configure(text=f"Sites: {total}")
+            else:
+                self.lbl_sites.configure(text=f"Sites: {enabled}/{total} enabled")
+            return
         if enabled == total:
             self.lbl_sites.configure(text=f"站点库：{total} 个")
         else:
@@ -227,6 +238,10 @@ class Shell(tk.Tk):
 
 
 def main(selftest_seconds: float | None = None) -> int:
+    try:
+        i18n.set_language(str(cfg.load().get("language") or "zh"))
+    except Exception:  # noqa: BLE001 - 读配置失败不该拦住启动
+        i18n.set_language("zh")
     try:
         app = Shell()
     except Exception as exc:  # noqa: BLE001 - 双击启动时没有控制台，必须弹窗

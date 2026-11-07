@@ -9,6 +9,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import messagebox, ttk
 
+from .. import i18n
 from . import theme
 
 
@@ -29,7 +30,7 @@ class AliasDialog(tk.Toplevel):
         header.pack_propagate(False)
         tk.Label(
             header,
-            text="换名同人建议",
+            text=i18n.t("换名同人建议"),
             bg=theme.HEADER,
             fg="white",
             font=(theme.FONT, 14, "bold"),
@@ -45,24 +46,26 @@ class AliasDialog(tk.Toplevel):
         # 按钮条先 pack 到底部，保证任何窗口高度下都看得见
         bar = tk.Frame(self, bg=theme.BG)
         bar.pack(side="bottom", fill="x", padx=px(14), pady=(px(2), px(14)))
-        ttk.Button(bar, text="合并为同一人", style="Accent.TButton", command=self._merge).pack(
+        ttk.Button(bar, text=i18n.t("合并为同一人"), style="Accent.TButton", command=self._merge).pack(
             side="left"
         )
-        ttk.Button(bar, text="打开账号 A", command=lambda: self._open(0)).pack(
+        ttk.Button(bar, text=i18n.t("打开账号 A"), command=lambda: self._open(0)).pack(
             side="left", padx=(px(8), 0)
         )
-        ttk.Button(bar, text="打开账号 B", command=lambda: self._open(1)).pack(
+        ttk.Button(bar, text=i18n.t("打开账号 B"), command=lambda: self._open(1)).pack(
             side="left", padx=(px(8), 0)
         )
-        ttk.Button(bar, text="关闭", command=self.destroy).pack(side="right")
+        ttk.Button(bar, text=i18n.t("关闭"), command=self.destroy).pack(side="right")
 
         body = ttk.Frame(self, style="TFrame", padding=px(14))
         body.pack(fill="both", expand=True)
 
         hint = ttk.Label(
             body,
-            text="聚类以「用户名相同」为前提，所以不同名字之间再像也不会被自动并档。"
-            "选中一行点「合并为同一人」，会写进 constraints.json 并立即重新聚类。",
+            text=i18n.t(
+                "聚类以「用户名相同」为前提，所以不同名字之间再像也不会被自动并档。"
+                "选中一行点「合并为同一人」，会写进 constraints.json 并立即重新聚类。"
+            ),
             style="Hint.TLabel",
             wraplength=self.px(840),
             justify="left",

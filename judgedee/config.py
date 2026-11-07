@@ -35,6 +35,7 @@ DEFAULTS: dict[str, Any] = {
     "export_jsonl": False,
     "out_dir": "",
     "geometry": "",
+    "language": "zh",
 }
 
 

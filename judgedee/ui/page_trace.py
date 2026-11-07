@@ -13,6 +13,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import ttk
 
+from .. import i18n
 from .. import phone_setup, trace
 from . import theme
 
@@ -43,8 +44,8 @@ class TracePage(ttk.Frame):
 
         ip_tab = ttk.Frame(self.nb, style="Card.TFrame", padding=px(14))
         phone_tab = ttk.Frame(self.nb, style="Card.TFrame", padding=px(14))
-        self.nb.add(ip_tab, text="  IP 归属地  ")
-        self.nb.add(phone_tab, text="  手机号归属地  ")
+        self.nb.add(ip_tab, text=i18n.t("IP 归属地"))
+        self.nb.add(phone_tab, text=i18n.t("手机号归属地"))
 
         self._build_ip(ip_tab)
         self._build_phone(phone_tab)
@@ -59,10 +60,10 @@ class TracePage(ttk.Frame):
         head = ttk.Frame(tab, style="Card.TFrame")
         head.grid(row=0, column=0, sticky="ew")
         head.columnconfigure(0, weight=1)
-        ttk.Label(head, text="IP 归属地", style="Title.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(head, text=i18n.t("IP 归属地"), style="Title.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(
             head,
-            text="IPv4 / IPv6 的国家、城市、经纬度、运营商与机房标记；不记录查询历史。",
+            text=i18n.t("IPv4 / IPv6 的国家、城市、经纬度、运营商与机房标记；不记录查询历史。"),
             style="Hint.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(px(2), 0))
 
@@ -72,20 +73,20 @@ class TracePage(ttk.Frame):
         self.ent_ip = ttk.Entry(row)
         self.ent_ip.grid(row=0, column=0, sticky="ew", ipady=px(3))
         self.ent_ip.bind("<Return>", lambda _e: self.lookup_ip())
-        self.btn_ip = ttk.Button(row, text="查询", style="Accent.TButton", command=self.lookup_ip)
+        self.btn_ip = ttk.Button(row, text=i18n.t("查询"), style="Accent.TButton", command=self.lookup_ip)
         self.btn_ip.grid(row=0, column=1, padx=(px(8), 0))
-        self.btn_my = ttk.Button(row, text="我的 IP", style="Ghost.TButton", command=self.lookup_my_ip)
+        self.btn_my = ttk.Button(row, text=i18n.t("我的 IP"), style="Ghost.TButton", command=self.lookup_my_ip)
         self.btn_my.grid(row=0, column=2, padx=(px(6), 0))
 
-        self.lbl_ip = ttk.Label(tab, text="填一个 IP 回车，或点「我的 IP」查自己", style="Hint.TLabel")
+        self.lbl_ip = ttk.Label(tab, text=i18n.t("填一个 IP 回车，或点「我的 IP」查自己"), style="Hint.TLabel")
         self.lbl_ip.grid(row=2, column=0, sticky="w", pady=(0, px(8)))
 
         self.tree_ip = self._make_table(tab, row=3)
 
         actions = ttk.Frame(tab, style="Card.TFrame")
         actions.grid(row=4, column=0, sticky="ew", pady=(px(10), 0))
-        ttk.Button(actions, text="复制全部", style="Ghost.TButton", command=self._copy_ip).pack(side="right")
-        ttk.Button(actions, text="打开地图", style="Ghost.TButton", command=self._open_map).pack(
+        ttk.Button(actions, text=i18n.t("复制全部"), style="Ghost.TButton", command=self._copy_ip).pack(side="right")
+        ttk.Button(actions, text=i18n.t("打开地图"), style="Ghost.TButton", command=self._open_map).pack(
             side="right", padx=(0, px(8))
         )
 
@@ -99,10 +100,10 @@ class TracePage(ttk.Frame):
         head = ttk.Frame(tab, style="Card.TFrame")
         head.grid(row=0, column=0, sticky="ew")
         head.columnconfigure(0, weight=1)
-        ttk.Label(head, text="手机号归属地", style="Title.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(head, text=i18n.t("手机号归属地"), style="Title.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(
             head,
-            text="离线解析：归属地、运营商、时区、号码类型；号码不会发往任何服务器。",
+            text=i18n.t("离线解析：归属地、运营商、时区、号码类型；号码不会发往任何服务器。"),
             style="Hint.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(px(2), 0))
 
@@ -115,10 +116,10 @@ class TracePage(ttk.Frame):
         self.cmb_region = ttk.Combobox(row, values=REGION_CHOICES, width=5, state="readonly")
         self.cmb_region.set(trace.PHONE_DEFAULT_REGION)
         self.cmb_region.grid(row=0, column=1, padx=(px(8), 0))
-        self.btn_phone = ttk.Button(row, text="解析", style="Accent.TButton", command=self.parse_phone)
+        self.btn_phone = ttk.Button(row, text=i18n.t("解析"), style="Accent.TButton", command=self.parse_phone)
         self.btn_phone.grid(row=0, column=2, padx=(px(6), 0))
 
-        self.lbl_phone = ttk.Label(tab, text="带国家码更准，例如 +86 138 0013 8000", style="Hint.TLabel")
+        self.lbl_phone = ttk.Label(tab, text=i18n.t("带国家码更准，例如 +86 138 0013 8000"), style="Hint.TLabel")
         self.lbl_phone.grid(row=2, column=0, sticky="w", pady=(0, px(8)))
 
         # 号码库缺失时显示的提示条（默认隐藏）
@@ -134,7 +135,7 @@ class TracePage(ttk.Frame):
         )
         self.lbl_dep.grid(row=0, column=0, sticky="w")
         self.btn_dep = ttk.Button(
-            self.dep_box, text="一键安装号码库（约 2.5 MB）", style="Accent.TButton", command=self.install_dep
+            self.dep_box, text=i18n.t("一键安装号码库（约 2.5 MB）"), style="Accent.TButton", command=self.install_dep
         )
         self.btn_dep.grid(row=1, column=0, sticky="w", pady=(px(8), 0))
 
@@ -142,10 +143,10 @@ class TracePage(ttk.Frame):
 
         actions = ttk.Frame(tab, style="Card.TFrame")
         actions.grid(row=5, column=0, sticky="ew", pady=(px(10), 0))
-        ttk.Button(actions, text="复制 E.164", style="Ghost.TButton", command=self._copy_e164).pack(
+        ttk.Button(actions, text=i18n.t("复制 E.164"), style="Ghost.TButton", command=self._copy_e164).pack(
             side="right"
         )
-        ttk.Button(actions, text="复制全部", style="Ghost.TButton", command=self._copy_phone).pack(
+        ttk.Button(actions, text=i18n.t("复制全部"), style="Ghost.TButton", command=self._copy_phone).pack(
             side="right", padx=(0, px(8))
         )
 
@@ -173,8 +174,8 @@ class TracePage(ttk.Frame):
         holder.columnconfigure(0, weight=1)
         holder.rowconfigure(0, weight=1)
         tree = ttk.Treeview(holder, columns=("field", "value"), show="headings")
-        tree.heading("field", text="字段", anchor="w")
-        tree.heading("value", text="值", anchor="w")
+        tree.heading("field", text=i18n.t("字段"), anchor="w")
+        tree.heading("value", text=i18n.t("值"), anchor="w")
         tree.column("field", width=px(160), anchor="w", stretch=False)
         tree.column("value", width=px(420), anchor="w", stretch=True)
         tree.grid(row=0, column=0, sticky="nsew")
@@ -190,8 +191,8 @@ class TracePage(ttk.Frame):
         if self.installing:
             return
         self.installing = True
-        self.btn_dep.configure(state="disabled", text="安装中…")
-        self.lbl_dep.configure(text="正在下载并安装 phonenumbers，稍等十几秒…")
+        self.btn_dep.configure(state="disabled", text=i18n.t("安装中…"))
+        self.lbl_dep.configure(text=i18n.t("正在下载并安装 phonenumbers，稍等十几秒…"))
 
         def runner() -> None:
             ok, message = phone_setup.install()
@@ -203,12 +204,12 @@ class TracePage(ttk.Frame):
     def _apply_dep(self, payload: dict) -> None:
         self.installing = False
         if payload.get("ok"):
-            self.btn_dep.configure(state="normal", text="一键安装号码库（约 2.5 MB）")
+            self.btn_dep.configure(state="normal", text=i18n.t("一键安装号码库（约 2.5 MB）"))
             self._refresh_phone_ready()
             self._set_phone_status("号码库已就绪，可以直接解析", bad=False)
             self.shell.status("phonenumbers 安装完成")
             return
-        self.btn_dep.configure(state="normal", text="重试安装")
+        self.btn_dep.configure(state="normal", text=i18n.t("重试安装"))
         self.lbl_dep.configure(text=f"安装失败：{payload.get('message')}")
         self.shell.status("号码库安装失败")
 

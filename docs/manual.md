@@ -1,6 +1,7 @@
 # JudgeDee · 完整手册
 
 > 这是详细版：每个页面、每个字段、导出与打包都写全了。想先跑起来看 [README](../README.md)。
+> English version: [manual.en.md](manual.en.md) · [README.en.md](../README.en.md)
 
 > 输入一个用户名，看它在 481 个网站上有没有被注册；再顺着主页证据把散落的账号拼成「一个人」。
 > 另有 IP 归属地与手机号归属地两个小工具。纯本地运行，不联网拉站点表、不经过任何第三方服务器，

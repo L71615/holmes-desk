@@ -10,6 +10,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from .. import i18n
 from ..engine import QueryStatus, SearchCancelled, expand_usernames, pick_sites, search
 from .. import clues as clues_mod
 from ..export import export_report, export_run
@@ -114,9 +115,9 @@ class SearchPage(ttk.Frame):
         left.grid(row=0, column=0, sticky="nsew")
         left.configure(width=px(240))
 
-        ttk.Label(left, text="站点范围", style="Field.TLabel").pack(anchor="w")
+        ttk.Label(left, text=i18n.t("站点范围"), style="Field.TLabel").pack(anchor="w")
         ttk.Label(
-            left, text="勾选分组或单个站点；一个都不勾 = 用右边的站点框",
+            left, text=i18n.t("勾选分组或单个站点；一个都不勾 = 用右边的站点框"),
             style="Hint.TLabel", wraplength=px(215),
         ).pack(anchor="w", pady=(px(2), px(8)))
 
@@ -126,10 +127,10 @@ class SearchPage(ttk.Frame):
 
         row = ttk.Frame(left, style="Card.TFrame")
         row.pack(fill="x", pady=(px(8), px(6)))
-        ttk.Button(row, text="全选", style="Ghost.TButton", command=self._check_all).pack(
+        ttk.Button(row, text=i18n.t("全选"), style="Ghost.TButton", command=self._check_all).pack(
             side="left", expand=True, fill="x"
         )
-        ttk.Button(row, text="清空", style="Ghost.TButton", command=self._uncheck_all).pack(
+        ttk.Button(row, text=i18n.t("清空"), style="Ghost.TButton", command=self._uncheck_all).pack(
             side="left", expand=True, fill="x", padx=(px(6), 0)
         )
 
@@ -143,7 +144,7 @@ class SearchPage(ttk.Frame):
         self.tree_sites.tag_configure("group", font=(theme.FONT, 9, "bold"))
         self.tree_sites.bind("<Button-1>", self._on_tree_click)
 
-        self.lbl_checked = ttk.Label(left, text="已选 0 站", style="Hint.TLabel")
+        self.lbl_checked = ttk.Label(left, text=i18n.t("已选 0 站"), style="Hint.TLabel")
         self.lbl_checked.pack(anchor="w", pady=(px(6), 0))
 
         # 右：表单 + 结果
@@ -159,25 +160,32 @@ class SearchPage(ttk.Frame):
         row1.columnconfigure(1, weight=2)
         row1.columnconfigure(2, weight=4)
 
-        ttk.Label(row1, text="用户名", style="Field.TLabel").grid(row=0, column=0, sticky="w", pady=(0, px(4)))
-        ttk.Label(row1, text="站点预设", style="Field.TLabel").grid(
+        ttk.Label(row1, text=i18n.t("用户名"), style="Field.TLabel").grid(row=0, column=0, sticky="w", pady=(0, px(4)))
+        ttk.Label(row1, text=i18n.t("站点预设"), style="Field.TLabel").grid(
             row=0, column=1, sticky="w", padx=(px(12), 0), pady=(0, px(4))
         )
-        ttk.Label(row1, text="附加站点（可选，逗号分隔）", style="Field.TLabel").grid(
+        ttk.Label(row1, text=i18n.t("附加站点（可选，逗号分隔）"), style="Field.TLabel").grid(
             row=0, column=2, sticky="w", padx=(px(12), 0), pady=(0, px(4))
         )
 
         self.ent_users = ttk.Entry(row1)
         self.ent_users.grid(row=1, column=0, sticky="ew")
-        self.cmb_preset = ttk.Combobox(row1, values=preset_names(), state="readonly")
+        self._preset_keys = list(preset_names())
+        self.cmb_preset = ttk.Combobox(
+            row1, values=[i18n.t(name) for name in self._preset_keys], state="readonly"
+        )
         self.cmb_preset.grid(row=1, column=1, sticky="ew", padx=(px(12), 0))
-        self.cmb_preset.set(self.cfg.get("preset") or "全部站点")
+        current_preset = self.cfg.get("preset") or "全部站点"
+        if current_preset in self._preset_keys:
+            self.cmb_preset.current(self._preset_keys.index(current_preset))
+        else:
+            self.cmb_preset.set(i18n.t(current_preset))
         self.cmb_preset.bind("<<ComboboxSelected>>", self._on_preset_change)
         self.ent_sites = ttk.Entry(row1)
         self.ent_sites.grid(row=1, column=2, sticky="ew", padx=(px(12), 0))
 
         ttk.Label(
-            card, text="多个用户名用空格或逗号分隔；填 {?} 会自动展开成 _ - . 三种变体",
+            card, text=i18n.t("多个用户名用空格或逗号分隔；填 {?} 会自动展开成 _ - . 三种变体"),
             style="Hint.TLabel",
         ).pack(anchor="w", pady=(px(6), px(8)))
 
@@ -185,12 +193,12 @@ class SearchPage(ttk.Frame):
         row2.pack(fill="x")
         row2.columnconfigure(1, weight=1)
 
-        ttk.Label(row2, text="代理", style="Field.TLabel").grid(row=0, column=0, sticky="w", padx=(0, px(8)))
+        ttk.Label(row2, text=i18n.t("代理"), style="Field.TLabel").grid(row=0, column=0, sticky="w", padx=(0, px(8)))
         self.ent_proxy = ttk.Entry(row2)
         self.ent_proxy.grid(row=0, column=1, sticky="ew", padx=(0, px(16)))
         self.ent_proxy.insert(0, self.cfg.get("proxy") or "")
 
-        ttk.Label(row2, text="超时（秒）", style="Field.TLabel").grid(row=0, column=2, sticky="w")
+        ttk.Label(row2, text=i18n.t("超时（秒）"), style="Field.TLabel").grid(row=0, column=2, sticky="w")
         self.spn_timeout = ttk.Spinbox(row2, from_=5, to=120, increment=5, width=6)
         self.spn_timeout.set(self.cfg.get("timeout") or 20)
         self.spn_timeout.grid(row=0, column=3, sticky="w", padx=(px(6), px(18)))
@@ -198,13 +206,13 @@ class SearchPage(ttk.Frame):
         self.var_nsfw = tk.BooleanVar(value=bool(self.cfg.get("include_nsfw")))
         self.var_showall = tk.BooleanVar(value=bool(self.cfg.get("show_all")))
         self.var_self = tk.BooleanVar(value=bool(self.cfg.get("self_only")))
-        ttk.Checkbutton(row2, text="包含 NSFW 站点", variable=self.var_nsfw).grid(
+        ttk.Checkbutton(row2, text=i18n.t("包含 NSFW 站点"), variable=self.var_nsfw).grid(
             row=0, column=4, padx=(0, px(14))
         )
-        ttk.Checkbutton(row2, text="结果里显示未注册", variable=self.var_showall).grid(row=0, column=5)
+        ttk.Checkbutton(row2, text=i18n.t("结果里显示未注册"), variable=self.var_showall).grid(row=0, column=5)
         ttk.Checkbutton(
             row2,
-            text="自查模式（只查我，个人信息打码）",
+            text=i18n.t("自查模式（只查我，个人信息打码）"),
             variable=self.var_self,
             command=self._on_self_toggle,
         ).grid(row=0, column=6, padx=(px(14), 0))
@@ -212,7 +220,7 @@ class SearchPage(ttk.Frame):
         row3 = ttk.Frame(card, style="Card.TFrame")
         row3.pack(fill="x", pady=(px(10), 0))
 
-        ttk.Label(row3, text="导出", style="Field.TLabel").pack(side="left", padx=(0, px(8)))
+        ttk.Label(row3, text=i18n.t("导出"), style="Field.TLabel").pack(side="left", padx=(0, px(8)))
         self.var_formats: dict[str, tk.BooleanVar] = {}
         for key, label in FORMATS:
             var = tk.BooleanVar(value=bool(self.cfg.get(f"export_{key}", key in ("txt", "csv"))))
@@ -223,31 +231,31 @@ class SearchPage(ttk.Frame):
         row4.pack(fill="x", pady=(px(8), 0))
         row4.columnconfigure(1, weight=1)
 
-        ttk.Label(row4, text="结果目录", style="Field.TLabel").grid(row=0, column=0, sticky="w", padx=(0, px(8)))
+        ttk.Label(row4, text=i18n.t("结果目录"), style="Field.TLabel").grid(row=0, column=0, sticky="w", padx=(0, px(8)))
         self.ent_out = ttk.Entry(row4)
         self.ent_out.grid(row=0, column=1, sticky="ew")
         self.ent_out.insert(0, self.cfg.get("out_dir") or str(Path.cwd() / "results"))
-        ttk.Button(row4, text="浏览…", style="Ghost.TButton", command=self._pick_dir).grid(
+        ttk.Button(row4, text=i18n.t("浏览…"), style="Ghost.TButton", command=self._pick_dir).grid(
             row=0, column=2, padx=(px(6), px(14))
         )
         self.var_deep = tk.BooleanVar(value=bool(self.cfg.get("deep_profile", True)))
         ttk.Checkbutton(
-            row4, text="深入主页（跟进简介里的同站链接）", variable=self.var_deep
+            row4, text=i18n.t("深入主页（跟进简介里的同站链接）"), variable=self.var_deep
         ).grid(row=0, column=3, sticky="w")
 
         actions = ttk.Frame(right, style="TFrame")
         actions.pack(fill="x", pady=(px(10), px(6)))
 
-        self.btn_start = ttk.Button(actions, text="开始检索", style="Accent.TButton", command=self.start_search)
+        self.btn_start = ttk.Button(actions, text=i18n.t("开始检索"), style="Accent.TButton", command=self.start_search)
         self.btn_start.pack(side="left")
         self.btn_stop = ttk.Button(
-            actions, text="停止", style="Ghost.TButton", command=self.stop_search, state="disabled"
+            actions, text=i18n.t("停止"), style="Ghost.TButton", command=self.stop_search, state="disabled"
         )
         self.btn_stop.pack(side="left", padx=px(8))
-        self.btn_open = ttk.Button(actions, text="打开结果目录", style="Ghost.TButton", command=self._open_out)
+        self.btn_open = ttk.Button(actions, text=i18n.t("打开结果目录"), style="Ghost.TButton", command=self._open_out)
         self.btn_open.pack(side="left", padx=(0, px(8)))
         self.btn_report = ttk.Button(
-            actions, text="导出报告", style="Ghost.TButton", command=self.export_report_clicked, state="disabled"
+            actions, text=i18n.t("导出报告"), style="Ghost.TButton", command=self.export_report_clicked, state="disabled"
         )
         self.btn_report.pack(side="left")
 
@@ -255,12 +263,12 @@ class SearchPage(ttk.Frame):
         actions2.pack(fill="x", pady=(0, px(6)))
 
         self.btn_verify = ttk.Button(
-            actions2, text="复核已注册", style="Ghost.TButton", command=self.verify_rows, state="disabled"
+            actions2, text=i18n.t("复核已注册"), style="Ghost.TButton", command=self.verify_rows, state="disabled"
         )
         self.btn_verify.pack(side="left")
         self.btn_identity = ttk.Button(
             actions2,
-            text="身份分析",
+            text=i18n.t("身份分析"),
             style="Ghost.TButton",
             command=self.analyze_identity,
             state="disabled",
@@ -268,7 +276,7 @@ class SearchPage(ttk.Frame):
         self.btn_identity.pack(side="left", padx=(px(8), 0))
         self.btn_graph = ttk.Button(
             actions2,
-            text="图谱",
+            text=i18n.t("图谱"),
             style="Ghost.TButton",
             command=lambda: self.shell.show("graph"),
             state="disabled",
@@ -276,7 +284,7 @@ class SearchPage(ttk.Frame):
         self.btn_graph.pack(side="left", padx=(px(8), 0))
         self.btn_alias = ttk.Button(
             actions2,
-            text="换名同人",
+            text=i18n.t("换名同人"),
             style="Ghost.TButton",
             command=self.open_aliases,
             state="disabled",
@@ -284,7 +292,7 @@ class SearchPage(ttk.Frame):
         self.btn_alias.pack(side="left", padx=(px(8), 0))
         self.btn_variants = ttk.Button(
             actions2,
-            text="变体扫查",
+            text=i18n.t("变体扫查"),
             style="Ghost.TButton",
             command=self.sweep_variants,
             state="disabled",
@@ -292,7 +300,7 @@ class SearchPage(ttk.Frame):
         self.btn_variants.pack(side="left", padx=(px(8), 0))
         self.btn_persona = ttk.Button(
             actions2,
-            text="人物看板",
+            text=i18n.t("人物看板"),
             style="Ghost.TButton",
             command=self.open_persona,
             state="disabled",
@@ -302,7 +310,7 @@ class SearchPage(ttk.Frame):
         status_row = ttk.Frame(right, style="TFrame")
         status_row.pack(fill="x", pady=(0, px(6)))
         self.lbl_status = ttk.Label(
-            status_row, text="就绪", style="TLabel", foreground=theme.MUTED, anchor="w"
+            status_row, text=i18n.t("就绪"), style="TLabel", foreground=theme.MUTED, anchor="w"
         )
         self.lbl_status.pack(side="left")
 
@@ -314,21 +322,21 @@ class SearchPage(ttk.Frame):
 
         toolbar = ttk.Frame(result_card, style="Card.TFrame")
         toolbar.pack(fill="x", pady=(0, px(8)))
-        self.lbl_count = ttk.Label(toolbar, text="命中 0 个", style="Card.TLabel", font=(theme.FONT, 10, "bold"))
+        self.lbl_count = ttk.Label(toolbar, text=i18n.t("命中 0 个"), style="Card.TLabel", font=(theme.FONT, 10, "bold"))
         self.lbl_count.pack(side="left")
-        ttk.Label(toolbar, text="筛选", style="Hint.TLabel").pack(side="left", padx=(px(16), px(6)))
+        ttk.Label(toolbar, text=i18n.t("筛选"), style="Hint.TLabel").pack(side="left", padx=(px(16), px(6)))
         self.ent_filter = ttk.Entry(toolbar, width=18)
         self.ent_filter.pack(side="left")
         self.ent_filter.bind("<KeyRelease>", lambda _e: self._render())
 
         self.cmb_status = ttk.Combobox(
-            toolbar, state="readonly", width=8, values=list(STATUS_FILTERS)
+            toolbar, state="readonly", width=8, values=[i18n.t(name) for name in STATUS_FILTERS]
         )
-        self.cmb_status.set("全部")
+        self.cmb_status.current(0)
         self.cmb_status.pack(side="left", padx=(px(10), 0))
         self.cmb_status.bind("<<ComboboxSelected>>", lambda _e: self._render())
 
-        ttk.Button(toolbar, text="清空", style="Ghost.TButton", command=self.clear_results).pack(side="right")
+        ttk.Button(toolbar, text=i18n.t("清空"), style="Ghost.TButton", command=self.clear_results).pack(side="right")
 
         table = ttk.Frame(result_card, style="Card.TFrame")
         table.pack(fill="both", expand=True)
@@ -345,7 +353,7 @@ class SearchPage(ttk.Frame):
         )
         self.tree = ttk.Treeview(table, columns=[c[0] for c in columns], show="headings")
         for key, label, width, anchor, stretch in columns:
-            self.tree.heading(key, text=label, anchor=anchor)
+            self.tree.heading(key, text=i18n.t(label), anchor=anchor)
             self.tree.column(key, width=self.px(width), anchor=anchor, stretch=stretch)
 
         vsb = ttk.Scrollbar(table, orient="vertical", command=self.tree.yview)
@@ -388,7 +396,7 @@ class SearchPage(ttk.Frame):
             mark = CHECKED if picked == len(members) else (f"{CHECKED}" if picked else UNCHECKED)
             tree.insert(
                 "", "end", iid=f"g::{group}",
-                text=f"{mark} {group}（{picked}/{len(members)}）",
+                text=f"{mark} {i18n.t_group(group)}（{picked}/{len(members)}）",
                 open=bool(keyword) or any(n in self.checked for n in members),
                 tags=("group",),
             )
@@ -402,7 +410,7 @@ class SearchPage(ttk.Frame):
         self._update_checked_label()
 
     def _update_checked_label(self) -> None:
-        self.lbl_checked.configure(text=f"已选 {len(self.checked)} 站")
+        self.lbl_checked.configure(text=f"{i18n.t('已选')} {len(self.checked)} {i18n.t('站')}")
 
     def _on_tree_click(self, event) -> None:
         iid = self.tree_sites.identify_row(event.y)
@@ -439,8 +447,15 @@ class SearchPage(ttk.Frame):
         self._fill_tree()
 
     # ---------- 交互 ----------
+    def _preset_key(self) -> str:
+        """下拉显示的是翻译后的名字，这里换回内部键。"""
+        index = self.cmb_preset.current()
+        if 0 <= index < len(self._preset_keys):
+            return self._preset_keys[index]
+        return self._preset_keys[0]
+
     def _on_preset_change(self, _event=None) -> None:
-        text = preset_text(self.cmb_preset.get())
+        text = preset_text(self._preset_key())
         self.ent_sites.delete(0, "end")
         self.ent_sites.insert(0, text)
 
@@ -473,7 +488,7 @@ class SearchPage(ttk.Frame):
         self.tree.delete(*self.tree.get_children())
         self.rows.clear()
         self.run_rows.clear()
-        self.lbl_count.configure(text="命中 0 个")
+        self.lbl_count.configure(text=i18n.t("命中 0 个"))
         self.btn_verify.configure(state="disabled")
         self.btn_identity.configure(state="disabled")
         self.btn_report.configure(state="disabled")
@@ -482,7 +497,7 @@ class SearchPage(ttk.Frame):
         self.accounts = []
         self.aliases = []
         self.source_of = {}
-        self.btn_alias.configure(state="disabled", text="换名同人")
+        self.btn_alias.configure(state="disabled", text=i18n.t("换名同人"))
         self.btn_variants.configure(state="disabled")
         self.btn_persona.configure(state="disabled")
 
@@ -753,7 +768,7 @@ class SearchPage(ttk.Frame):
                 state="normal", text=f"换名同人（{len(self.aliases)}）"
             )
         else:
-            self.btn_alias.configure(state="disabled", text="换名同人")
+            self.btn_alias.configure(state="disabled", text=i18n.t("换名同人"))
         graph_page = self.shell.pages.get("graph")
         if graph_page is not None:
             graph_page.refresh()
@@ -1041,7 +1056,8 @@ class SearchPage(ttk.Frame):
 
     def _render(self) -> None:
         keyword = self.ent_filter.get().strip().lower()
-        wanted = STATUS_FILTERS.get(self.cmb_status.get(), None)
+        index = self.cmb_status.current()
+        wanted = list(STATUS_FILTERS.values())[index] if index >= 0 else None
         children = self.tree.get_children()
         if children:
             self.tree.delete(*children)
@@ -1096,7 +1112,7 @@ class SearchPage(ttk.Frame):
             {
                 "usernames": self.ent_users.get(),
                 "sites": self.ent_sites.get(),
-                "preset": self.cmb_preset.get(),
+                "preset": self._preset_key(),
                 "proxy": self.ent_proxy.get(),
                 "timeout": self.spn_timeout.get(),
                 "include_nsfw": self.var_nsfw.get(),
