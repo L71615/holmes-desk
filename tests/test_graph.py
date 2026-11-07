@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from holmes_desk import graph
-from holmes_desk.constraints import Constraints
-from holmes_desk.identity import Account, MERGE_THRESHOLD, cluster_accounts
+from judgedee import graph
+from judgedee.constraints import Constraints
+from judgedee.identity import Account, MERGE_THRESHOLD, cluster_accounts
 
 
 def make(username, site, display_name="", bio="", avatar_a=None, avatar_d=None, links=None, mentions=None):

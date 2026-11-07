@@ -1,4 +1,4 @@
-# HolmesDesk 打包脚本：生成 dist\HolmesDesk.exe（单文件、免安装、带图标）
+# JudgeDee 打包脚本：生成 dist\JudgeDee.exe（单文件、免安装、带图标）
 # 用法：pwsh -File build\build.ps1
 $ErrorActionPreference = "Stop"
 
@@ -12,7 +12,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-$icon = Join-Path $root "holmes_desk\assets\holmesdesk-app.ico"
+$icon = Join-Path $root "judgedee\assets\judgedee-app.ico"
 
 Write-Host "==> PyInstaller 打包" -ForegroundColor Cyan
 python -m PyInstaller `
@@ -20,19 +20,19 @@ python -m PyInstaller `
     --clean `
     --onefile `
     --windowed `
-    --name HolmesDesk `
+    --name JudgeDee `
     --icon $icon `
-    --add-data "holmes_desk\assets;holmes_desk\assets" `
-    --add-data "holmes_desk\data;holmes_desk\data" `
-    --collect-submodules holmes_desk `
-    holmes_desk\__main__.py
+    --add-data "judgedee\assets;judgedee\assets" `
+    --add-data "judgedee\data;judgedee\data" `
+    --collect-submodules judgedee `
+    judgedee\__main__.py
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "打包失败" -ForegroundColor Red
     exit 1
 }
 
-$exe = Join-Path $root "dist\HolmesDesk.exe"
+$exe = Join-Path $root "dist\JudgeDee.exe"
 if (Test-Path $exe) {
     $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
     Write-Host "==> 完成：$exe（$size MB）" -ForegroundColor Green

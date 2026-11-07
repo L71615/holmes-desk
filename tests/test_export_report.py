@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from holmes_desk.export import export_report, write_report_html, write_report_txt
+from judgedee.export import export_report, write_report_html, write_report_txt
 
 ROWS = [
     {

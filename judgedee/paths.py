@@ -11,7 +11,7 @@ PKG_DIR = Path(__file__).resolve().parent
 def resource_path(*parts: str) -> Path:
     """返回随程序分发的资源路径（assets / data）。"""
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        return Path(sys._MEIPASS) / "holmes_desk" / Path(*parts)
+        return Path(sys._MEIPASS) / "judgedee" / Path(*parts)
     return PKG_DIR / Path(*parts)
 
 
@@ -23,5 +23,5 @@ def app_dir() -> Path:
 
 
 SITE_DATA_PATH = resource_path("data", "data.json")
-ICON_PATH = resource_path("assets", "holmesdesk.ico")
-EXE_ICON_PATH = resource_path("assets", "holmesdesk-app.ico")
+ICON_PATH = resource_path("assets", "judgedee.ico")
+EXE_ICON_PATH = resource_path("assets", "judgedee-app.ico")

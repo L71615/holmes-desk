@@ -356,7 +356,7 @@ class SitesPage(ttk.Frame):
         path = filedialog.asksaveasfilename(
             title="导出站点库",
             defaultextension=".json",
-            initialfile="holmes-desk-sites.json",
+            initialfile="judgedee-sites.json",
             filetypes=[("JSON 文件", "*.json")],
         )
         if not path:

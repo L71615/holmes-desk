@@ -1,8 +1,8 @@
 import unittest
 
-from holmes_desk.identity import Account, Cluster
-from holmes_desk.persona import build_persona
-from holmes_desk.privacy import mask_domain, mask_email, mask_handle, mask_token, redact_persona
+from judgedee.identity import Account, Cluster
+from judgedee.persona import build_persona
+from judgedee.privacy import mask_domain, mask_email, mask_handle, mask_token, redact_persona
 
 
 def sample_accounts() -> list[Account]:

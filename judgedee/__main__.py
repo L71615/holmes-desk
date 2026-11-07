@@ -1,4 +1,4 @@
-"""命令行入口：``python -m holmes_desk`` 或安装后的 ``holmes-desk``。"""
+"""命令行入口：``python -m judgedee`` 或安装后的 ``judgedee``。"""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def _startup_log() -> Path | None:
     """双击启动时没有控制台，任何异常都得落到文件里，否则就是"点了没反应"。"""
     for base in (Path(__file__).resolve().parent.parent, Path(tempfile.gettempdir())):
         try:
-            path = base / "holmesdesk-startup.log"
+            path = base / "judgedee-startup.log"
             path.touch(exist_ok=True)
             return path
         except OSError:
@@ -116,7 +116,7 @@ def _uninstall() -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="holmes-desk",
+        prog="judgedee",
         description=f"{__app_name__} · 本地用户名检索工具（图形界面）",
     )
     parser.add_argument("--version", action="version", version=f"{__app_name__} v{__version__}")

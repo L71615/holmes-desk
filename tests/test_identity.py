@@ -2,7 +2,7 @@
 
 import unittest
 
-from holmes_desk.identity import (
+from judgedee.identity import (
     MERGE_THRESHOLD,
     Account,
     bio_similarity,

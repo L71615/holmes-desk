@@ -1,5 +1,30 @@
 # 更新日志
 
+## v2.0.0 (2026-11-07)
+
+改名版：项目更名 **JudgeDee（狄仁杰）**，仓库迁到 `L71615/judgedee`，包名、启动器、配置目录一并换掉。
+
+### 变更（破坏性）
+
+- **仓库 / 包名**：`holmes-desk` → `judgedee`；Python 包目录 `holmes_desk/` → `judgedee/`；
+  命令 `judgedee`、`judgedee-gui`；`pyproject.toml` 的 name 与 package-data 同步。
+- **程序名**：窗口标题「JudgeDee 人物情报 · 本地版 v2.0.0」，`__app_name_zh__` 随之更新。
+- **配置目录**：`%APPDATA%\HolmesDesk` → `%APPDATA%\JudgeDee`；首次启动时**自动迁移**旧目录里的
+  `config.json`、`sites_user.json`、`history.db`、`constraints.json`、头像缩略图，用户无需手动搬。
+  环境变量 `JUDGEDEE_HOME` 为新的便携开关，旧的 `HOLMES_DESK_HOME` 仍被识别。
+- **启动器**：`HolmesDesk.exe` → `JudgeDee.exe`（图标、快捷方式一并重编译）。
+- **图标资源**：`assets/holmesdesk*.ico` → `assets/judgedee*.ico`。
+
+### 新增
+
+- **关于**：设置页「关于」重写为四段——能做什么、离线与依赖、隐私、来源与许可，
+  附「打开项目主页 / 查看许可」两个按钮；README 同步新增「名字：为什么叫 JudgeDee」与「关于」两节。
+- 设置页改为可滚动（内容变长后不再被窗口底部截断）。
+
+### 测试
+
+- 全套 **101 例通过**（导入路径随包名更新），`python -m judgedee --version` → `JudgeDee v2.0.0`。
+
 ## v1.0.0 (2026-11-07)
 
 定位从「用户名检索」扩成「人物情报工作台」：检索、身份拼图之外，补上 IP 与手机号两条线索。

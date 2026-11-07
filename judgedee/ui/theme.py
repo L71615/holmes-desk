@@ -35,6 +35,9 @@ def apply_style(root: tk.Misc, px) -> None:
     st.configure("Card.TLabel", background=CARD, foreground=INK, font=(FONT, 10))
     st.configure("Hint.TLabel", background=CARD, foreground=MUTED, font=(FONT, 9))
     st.configure("Field.TLabel", background=CARD, foreground="#374151", font=(FONT, 10, "bold"))
+    st.configure("Title.TLabel", background=CARD, foreground=INK, font=(FONT, 13, "bold"))
+    st.configure("Sub.TLabel", background=CARD, foreground="#374151", font=(FONT, 10, "bold"))
+    st.configure("Body.TLabel", background=CARD, foreground=INK, font=(FONT, 10))
 
     st.configure(
         "TEntry", fieldbackground="white", bordercolor=LINE,

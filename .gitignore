@@ -9,7 +9,8 @@ venv/
 
 # 打包产物
 *.spec
-HolmesDesk.exe
+*.exe
+judgedee-launcher.log
 holmesdesk-launcher.log
 Sherlock检索.exe
 
@@ -18,6 +19,7 @@ results/
 *.log
 .testhome/
 .demohome/
+.judgedee/
 _demo*.py
 _shot_readme.py
 _mk_shot.py

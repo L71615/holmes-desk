@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from holmes_desk import trace
+from judgedee import trace
 
 IPAPI_OK = {
     "status": "success",

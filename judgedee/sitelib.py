@@ -1,7 +1,7 @@
 """站点库：分组、备注名、启用状态、自定义站点。
 
 内置站点表（data.json）始终只读，用户的所有改动都落在
-``%APPDATA%\\HolmesDesk\\sites_user.json``：
+``%APPDATA%\\JudgeDee\\sites_user.json``：
 
 .. code-block:: json
 

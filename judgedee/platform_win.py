@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .paths import app_dir
 
-SHORTCUT_NAME = "HolmesDesk 用户名检索.lnk"
+SHORTCUT_NAME = "JudgeDee 人物情报.lnk"
 
 
 def enable_dpi_awareness() -> None:
@@ -103,6 +103,9 @@ def build_launcher(icon: Path, out_exe: Path) -> Path | None:
             ],
             check=True,
             capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=120,
         )
     except Exception:  # noqa: BLE001
@@ -125,7 +128,7 @@ $link.TargetPath = "{target}"
 $link.Arguments = "{args}"
 $link.WorkingDirectory = "{workdir}"
 $link.IconLocation = "{icon}"
-$link.Description = "HolmesDesk 用户名检索"
+$link.Description = "JudgeDee 用户名检索"
 $link.Save()
 """
 
@@ -149,6 +152,8 @@ def _make_lnk(lnk: Path, target: str, args: str, workdir: str, icon: str) -> Non
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", tmp],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=60,
         )
         if proc.returncode != 0:
@@ -161,18 +166,18 @@ def _make_lnk(lnk: Path, target: str, args: str, workdir: str, icon: str) -> Non
 def install_shortcut(icon: Path, name: str = SHORTCUT_NAME) -> dict[str, object]:
     """在桌面和开始菜单创建快捷方式。
 
-    打包模式下直接指向 HolmesDesk.exe；源码模式编译一个带图标的启动器 exe，
+    打包模式下直接指向 JudgeDee.exe；源码模式编译一个带图标的启动器 exe，
     失败才退回 pythonw.exe + .lnk 图标（图标可能显示为通用图标）。
     """
     workdir = str(app_dir())
     if getattr(sys, "frozen", False):
         target, args, icon_ref = sys.executable, "", sys.executable + ",0"
     else:
-        launcher = build_launcher(icon, app_dir() / "HolmesDesk.exe")
+        launcher = build_launcher(icon, app_dir() / "JudgeDee.exe")
         if launcher is not None:
             target, args, icon_ref = str(launcher), "", str(launcher) + ",0"
         else:
-            target, args, icon_ref = pythonw_path(), "-m holmes_desk", str(icon) + ",0"
+            target, args, icon_ref = pythonw_path(), "-m judgedee", str(icon) + ",0"
 
     created: list[str] = []
     errors: list[str] = []

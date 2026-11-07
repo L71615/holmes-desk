@@ -7,16 +7,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from holmes_desk.engine import (
+from judgedee.engine import (
     QueryResult,
     QueryStatus,
     expand_usernames,
     load_sites,
     pick_sites,
 )
-from holmes_desk.export import export_run
-from holmes_desk.paths import SITE_DATA_PATH
-from holmes_desk.presets import preset_names, preset_text
+from judgedee.export import export_run
+from judgedee.paths import SITE_DATA_PATH
+from judgedee.presets import preset_names, preset_text
 
 
 def _fake_results() -> dict:

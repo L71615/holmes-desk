@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import tkinter as tk
+import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
@@ -25,7 +27,22 @@ class SettingsPage(ttk.Frame):
     def _build(self) -> None:
         px = self.px
 
-        card = ttk.Frame(self, style="Card.TFrame", padding=px(16))
+        canvas = tk.Canvas(self, bg=theme.BG, highlightthickness=0, bd=0)
+        bar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=bar.set)
+        bar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        self.body = ttk.Frame(canvas, style="TFrame")
+        window = canvas.create_window((0, 0), window=self.body, anchor="nw")
+        self.body.bind(
+            "<Configure>", lambda _e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(window, width=e.width))
+        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-e.delta / 120), "units"))
+        self._canvas = canvas
+
+        card = ttk.Frame(self.body, style="Card.TFrame", padding=px(16))
         card.pack(fill="x")
         card.columnconfigure(1, weight=1)
 
@@ -87,7 +104,7 @@ class SettingsPage(ttk.Frame):
             row=8, column=1, sticky="e", pady=(px(12), 0)
         )
 
-        data_card = ttk.Frame(self, style="Card.TFrame", padding=px(16))
+        data_card = ttk.Frame(self.body, style="Card.TFrame", padding=px(16))
         data_card.pack(fill="x", pady=(px(10), 0))
         ttk.Label(data_card, text="数据", style="Field.TLabel").pack(anchor="w", pady=(0, px(8)))
         ttk.Label(
@@ -105,20 +122,74 @@ class SettingsPage(ttk.Frame):
             side="left", padx=px(8)
         )
 
-        about = ttk.Frame(self, style="Card.TFrame", padding=px(16))
+        about = ttk.Frame(self.body, style="Card.TFrame", padding=px(16))
         about.pack(fill="both", expand=True, pady=(px(10), 0))
         ttk.Label(about, text="关于", style="Field.TLabel").pack(anchor="w", pady=(0, px(8)))
         ttk.Label(
             about,
+            text=f"{__app_name_zh__} v{__version__}",
+            style="Title.TLabel",
+        ).pack(anchor="w")
+        ttk.Label(
+            about,
             text=(
-                f"{__app_name_zh__} v{__version__} —— 本地单机，一次装好，离线可用。\n"
-                f"站点库现有 {self.shell.lib.count()} 个站点，全部内置，不联网更新。\n"
-                "检索、身份分析、图谱、IP 与手机号归属地都在本机完成，不经过任何中转服务器。\n"
-                "只依赖 requests；XLSX 导出需要 pandas + openpyxl，头像比对需要 Pillow，\n"
-                "手机号解析需要 phonenumbers（离线号码库）。"
+                "一个跑在自己电脑上的人物情报台：给一个用户名，把散落在各站的账号找出来，\n"
+                "再用主页上的昵称、简介、头像、互链当证据，判断哪些账号其实是同一个人。"
             ),
             style="Hint.TLabel", justify="left", wraplength=self.px(760),
-        ).pack(anchor="w")
+        ).pack(anchor="w", pady=(px(6), px(10)))
+
+        for title, body in (
+            (
+                "能做什么",
+                f"· 账号检索：{self.shell.lib.count()} 个站点，按用户名并发查询，支持站点分组勾选\n"
+                "· 人物重建：身份聚类、证据两两对比、图谱、人物看板、换名同人建议、变体扫查\n"
+                "· 周边线索：IP 归属地（国家/城市/经纬度/ISP/ASN）与手机号离线解析\n"
+                "· 留痕：本地历史、两次检索对比、TXT/CSV/XLSX/HTML/JSONL 导出（HTML 内嵌 SVG 图谱）",
+            ),
+            (
+                "离线与依赖",
+                "站点表、判定规则、图标随程序分发，检索不经过任何中转服务器。\n"
+                "必装只有 requests；XLSX 导出需 pandas + openpyxl，头像比对需 Pillow，\n"
+                "手机号解析需 phonenumbers（离线号码库，号码不出本机）。\n"
+                "IP 查询会把被查 IP 发给 ip-api.com（失败时 ipinfo.io），除此之外没有外部请求。",
+            ),
+            (
+                "隐私",
+                "所有结果只写在本机配置目录；历史库是普通 SQLite 文件，可随时清空。\n"
+                "自查模式下，人物看板里的邮箱 / IM / 个人站点会打码显示，账号数与结论不受影响。",
+            ),
+            (
+                "来源与许可",
+                "代码为本人独立实现，MIT 许可（见 LICENSE）。站点清单与判定思路整理自公开资料，\n"
+                "第三方数据的归属声明见 NOTICE。项目地址：github.com/L71615/judgedee",
+            ),
+        ):
+            ttk.Label(about, text=title, style="Sub.TLabel").pack(anchor="w", pady=(px(4), px(2)))
+            ttk.Label(
+                about, text=body, style="Hint.TLabel", justify="left", wraplength=self.px(760)
+            ).pack(anchor="w", pady=(0, px(6)))
+
+        links = ttk.Frame(about, style="Card.TFrame")
+        links.pack(anchor="w", pady=(px(8), 0))
+        ttk.Button(
+            links, text="打开项目主页", style="Ghost.TButton", command=self._open_homepage
+        ).pack(side="left")
+        ttk.Button(links, text="查看许可", style="Ghost.TButton", command=self._open_license).pack(
+            side="left", padx=px(8)
+        )
+
+    def _open_homepage(self) -> None:
+        webbrowser.open("https://github.com/L71615/judgedee")
+
+    def _open_license(self) -> None:
+        from ..paths import PKG_DIR
+
+        license_path = PKG_DIR.parent / "LICENSE"
+        if license_path.exists():
+            os.startfile(str(license_path))  # noqa: S606 - 打开本地文本，路径自控
+        else:
+            messagebox.showinfo("许可", "本项目使用 MIT 许可；仓库根目录的 LICENSE 是全文。")
 
     def _pick_dir(self) -> None:
         current = self.ent_out.get().strip() or str(Path.cwd())

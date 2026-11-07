@@ -68,7 +68,7 @@ def write_xlsx(path: Path, username: str, results: dict, show_all: bool = False)
 
     rows = list(_rows(username, results, show_all))
     frame = pd.DataFrame(rows, columns=FIELDS)
-    frame.to_excel(path, sheet_name="holmes-desk", index=False)
+    frame.to_excel(path, sheet_name="judgedee", index=False)
     return len(rows)
 
 
@@ -106,7 +106,7 @@ HTML_TEMPLATE = """<!doctype html>
 <div class="wrap">
   <header>
     <h1>{username}</h1>
-    <p>HolmesDesk 用户名检索报告 · 生成于 {generated}</p>
+    <p>JudgeDee 用户名检索报告 · 生成于 {generated}</p>
   </header>
   <div class="stats">
     <div class="stat"><b>{claimed}</b><span>已注册站点</span></div>
@@ -119,7 +119,7 @@ HTML_TEMPLATE = """<!doctype html>
 {rows}
     </tbody>
   </table>
-  <footer>本报告由 HolmesDesk 在本机生成，不含任何云端上传。</footer>
+  <footer>本报告由 JudgeDee 在本机生成，不含任何云端上传。</footer>
 </div>
 </body>
 </html>
@@ -432,7 +432,7 @@ REPORT_HTML = """<!doctype html>
 <div class="wrap">
   <header>
     <h1>{username}</h1>
-    <p>HolmesDesk 用户名检索报告 · 生成于 {generated}</p>
+    <p>JudgeDee 用户名检索报告 · 生成于 {generated}</p>
   </header>
   <div class="stats">
     <div class="stat"><b>{claimed}</b><span>已注册</span></div>
@@ -443,7 +443,7 @@ REPORT_HTML = """<!doctype html>
 {graph}
 {aliases}
 {sections}
-  <footer>本报告由 HolmesDesk 在本机生成，不含任何云端上传。</footer>
+  <footer>本报告由 JudgeDee 在本机生成，不含任何云端上传。</footer>
 </div>
 <script>
   (function () {{
@@ -586,7 +586,7 @@ def write_report_xlsx(path: Path, username: str, rows: Iterable[dict[str, Any]])
     import pandas as pd  # 延迟导入：没装 pandas 时其它格式照常可用
 
     data = _report_rows(rows)
-    pd.DataFrame(data, columns=REPORT_FIELDS).to_excel(path, sheet_name="holmes-desk", index=False)
+    pd.DataFrame(data, columns=REPORT_FIELDS).to_excel(path, sheet_name="judgedee", index=False)
     return len(data)
 
 

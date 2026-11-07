@@ -5,8 +5,8 @@ import unittest
 from pathlib import Path
 from xml.etree import ElementTree
 
-from holmes_desk.export import export_report, write_report_html
-from holmes_desk.identity import REVIEW_THRESHOLD, Account, alias_candidates
+from judgedee.export import export_report, write_report_html
+from judgedee.identity import REVIEW_THRESHOLD, Account, alias_candidates
 
 
 def make(username, site, display_name="", bio="", avatar_a=None, avatar_d=None, links=None):
@@ -71,7 +71,7 @@ class ReportGraphTest(unittest.TestCase):
         identity = {"accounts": accounts, "clusters": [], "review": []}
 
         # 直接用 identity 里的账号聚类，得到的档案用来上色
-        from holmes_desk.identity import cluster_accounts
+        from judgedee.identity import cluster_accounts
 
         clusters, review = cluster_accounts(accounts)
         identity["clusters"] = clusters
@@ -91,7 +91,7 @@ class ReportGraphTest(unittest.TestCase):
             make("dave", "GitHub", display_name="Dave", avatar_a=1, avatar_d=2),
             make("dave", "Reddit", display_name="Dave", avatar_a=1, avatar_d=2),
         ]
-        from holmes_desk.identity import cluster_accounts
+        from judgedee.identity import cluster_accounts
 
         clusters, review = cluster_accounts(accounts)
         identity = {"accounts": accounts, "clusters": clusters, "review": review}
@@ -112,7 +112,7 @@ class ReportGraphTest(unittest.TestCase):
             make("frank", "Reddit", display_name="Frank", avatar_a=11, avatar_d=13),
             make("frank", "GitLab", display_name="Frank"),
         ]
-        from holmes_desk.identity import cluster_accounts
+        from judgedee.identity import cluster_accounts
 
         clusters, review = cluster_accounts(accounts)
         with tempfile.TemporaryDirectory() as tmp:

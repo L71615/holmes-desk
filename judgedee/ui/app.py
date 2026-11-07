@@ -236,10 +236,10 @@ def main(selftest_seconds: float | None = None) -> int:
         root = _tk.Tk()
         root.withdraw()
         _mb.showerror(
-            "HolmesDesk 启动失败",
+            "JudgeDee 启动失败",
             f"{type(exc).__name__}: {exc}\n\n"
             "常见原因：配置目录没有写权限。\n"
-            "可以设一个环境变量 HOLMES_DESK_HOME 指向一个能写的目录再试。",
+            "可以设一个环境变量 JUDGEDEE_HOME 指向一个能写的目录再试。",
         )
         root.destroy()
         return 1

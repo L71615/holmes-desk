@@ -1,4 +1,4 @@
-# HolmesDesk · 本地人物情报工作台
+# JudgeDee · 本地人物情报工作台
 
 > 输入一个用户名，看它在 481 个网站上有没有被注册；再顺着主页证据把散落的账号拼成「一个人」。
 > 另有 IP 归属地与手机号归属地两个小工具。纯本地运行，不联网拉站点表、不经过任何第三方服务器，
@@ -11,7 +11,7 @@
 
 ## 这是什么
 
-HolmesDesk 是一个 Windows 桌面小程序，眼下做三件事：
+JudgeDee 是一个 Windows 桌面小程序，眼下做三件事：
 
 1. **账号检索**：填用户名 → 点开始 → 得到一份「这个人在哪些站有账号」的清单。
 2. **人物重建**：抓主页上的昵称、头像、简介、外链，判断哪几个账号其实是同一个人，
@@ -26,28 +26,36 @@ HolmesDesk 是一个 Windows 桌面小程序，眼下做三件事：
 - **双击即用**：桌面图标点开就是界面，不用开终端、不用记参数。
 - **结果能直接给人看**：HTML 报告是单文件，发给别人双击就能看。
 
+## 名字：为什么叫 JudgeDee
+
+狄仁杰断案靠的不是灵感，是**把证物一件件摆到桌上对照**：谁是同一个人、哪句话对不上、哪个细节只有当事人知道。
+这个工具干的是同一件事——把散落在几百个站点上的账号、昵称、头像、简介、外链摆到一起，让「是不是同一个人」这件事有据可查。
+
+英文名取 *Judge Dee*（高罗佩《大唐狄公案》里的译名），短、能念、能拼，直接当仓库名和包名用：
+`judgedee`。中文界面里仍叫「人物情报」，不做神化，只说它实际能干什么。
+
 ## 快速开始
 
 ### 方式一：下载即用（推荐给普通用户）
 
-1. 到 [Releases](https://github.com/L71615/holmes-desk/releases) 下载 `HolmesDesk-win64.zip`
-2. 解压到任意目录，双击 `HolmesDesk.exe`
+1. 到 [Releases](https://github.com/L71615/judgedee/releases) 下载 `JudgeDee-win64.zip`
+2. 解压到任意目录，双击 `JudgeDee.exe`
 3. 想放桌面就右键 → 发送到 → 桌面快捷方式
 
-免安装、不写注册表；想卸载直接删文件夹（配置在 `%APPDATA%\HolmesDesk\config.json`，也可一并删除）。
+免安装、不写注册表；想卸载直接删文件夹（配置在 `%APPDATA%\JudgeDee\config.json`，也可一并删除）。
 
 ### 方式二：从源码装（开发者）
 
 ```bash
-git clone https://github.com/L71615/holmes-desk.git
-cd holmes-desk
+git clone https://github.com/L71615/judgedee.git
+cd judgedee
 python -m pip install -e .
 
 # 打开界面
-holmes-desk
+judgedee
 
 # 在桌面和开始菜单创建快捷方式（图标内嵌在 exe 里，不会显示成白纸）
-holmes-desk --install-shortcut
+judgedee --install-shortcut
 ```
 
 要求 Python 3.9+（推荐 3.11）。只需要 `requests`。
@@ -90,7 +98,7 @@ holmes-desk --install-shortcut
 - **新增站点**：填名字、URL 模板（必须含 `{}`）、判定方式即可；提交前会校验，写错会直接告诉你哪里不对。
 - **导入 / 导出**：站点库可以存成 JSON 带走或分享，也可以导入别人的库（同名站点会被覆盖）。
 
-改动存在 `%APPDATA%\HolmesDesk\sites_user.json`，不碰内置的 `data.json`——所以升级程序不会丢你自己的改动，想全清就删这个文件。
+改动存在 `%APPDATA%\JudgeDee\sites_user.json`，不碰内置的 `data.json`——所以升级程序不会丢你自己的改动，想全清就删这个文件。
 
 ![站点库](docs/shot-sites.png)
 
@@ -189,7 +197,7 @@ holmes-desk --install-shortcut
 
 - 按住 `Ctrl` 点两个点 → 「合并为同一人」（must-link）；
 - 或者「标记为不同人」（cannot-link）；
-- 这些判断存在 `%APPDATA%\HolmesDesk\constraints.json`，当场重新聚类，下次分析也继续生效，
+- 这些判断存在 `%APPDATA%\JudgeDee\constraints.json`，当场重新聚类，下次分析也继续生效，
   想撤销就选回这两个点再点「清除该对约束」。
 
 ![图谱](docs/shot-graph.png)
@@ -200,7 +208,7 @@ holmes-desk --install-shortcut
 
 ### 历史
 
-每次检索自动落库（SQLite，`%APPDATA%\HolmesDesk\history.db`），记下时间、用户名、命中数、站点数、用时、导出目录。
+每次检索自动落库（SQLite，`%APPDATA%\JudgeDee\history.db`），记下时间、用户名、命中数、站点数、用时、导出目录。
 点一条就能在下表看到那次的具体结果，可以删除单条、清空全部、或直接打开当时的导出目录。
 
 选中一条点「和上一次对比」，会拿它跟**同用户名的上一次检索**（没有就退回归全局上一条）比，
@@ -318,8 +326,8 @@ holmes-desk --install-shortcut
 不开界面也能跑，方便写成脚本：
 
 ```bash
-holmes-desk --search L71615 --sites GitHub,Reddit,GitLab --proxy http://127.0.0.1:7897
-holmes-desk --search alice --all          # 连未注册的站点一起打印
+judgedee --search L71615 --sites GitHub,Reddit,GitLab --proxy http://127.0.0.1:7897
+judgedee --search alice --all          # 连未注册的站点一起打印
 ```
 
 其它参数：`--version`、`--selftest`（启动界面后自动关闭，用来查能不能打开）、
@@ -329,12 +337,12 @@ holmes-desk --search alice --all          # 连未注册的站点一起打印
 
 ```powershell
 pwsh -File build\build.ps1
-# 产物：dist\HolmesDesk.exe（单文件、带图标）
+# 产物：dist\JudgeDee.exe（单文件、带图标）
 ```
 
 ## 自定义站点表
 
-站点表在 `holmes_desk/data/data.json`，格式与上游一致：
+站点表在 `judgedee/data/data.json`，格式与上游一致：
 
 ```json
 "GitHub": {
@@ -368,21 +376,21 @@ pwsh -File build\build.ps1
 - IP 查询会把被查的 IP 发给 ip-api.com / ipinfo.io（两个公开查询接口），除此之外不带任何个人信息。
 - 手机号解析完全离线，号码不出本机。
 - 唯一的「外联」是检索、IP 查询本身，以及 `--install-shortcut` 时调用本机 PowerShell 建快捷方式。
-- 配置和历史只存在本机 `%APPDATA%\HolmesDesk\`（不可写时自动退到程序目录或临时目录）。
+- 配置和历史只存在本机 `%APPDATA%\JudgeDee\`（不可写时自动退到程序目录或临时目录）。
 
 ## 常见问题
 
 **双击图标没反应 / 打开的是旧界面**
 
-- 桌面图标必须指向 `HolmesDesk.exe`（启动器）。如果还是老的 `Sherlock检索.exe`，
-  那是上一代的单页版本，删掉它、用 `python -m holmes_desk --install-shortcut` 重建。
-- 启动器会把失败原因写进程序目录的 `holmesdesk-launcher.log`，也会弹窗提示。
+- 桌面图标必须指向 `JudgeDee.exe`（启动器）。如果还是老的 `Sherlock检索.exe`，
+  那是上一代的单页版本，删掉它、用 `python -m judgedee --install-shortcut` 重建。
+- 启动器会把失败原因写进程序目录的 `judgedee-launcher.log`，也会弹窗提示。
 
 **配置目录没有写权限**
 
-程序按 `%APPDATA%\HolmesDesk` → `%LOCALAPPDATA%\HolmesDesk` → 临时目录 的顺序找可写位置，
+程序按 `%APPDATA%\JudgeDee` → `%LOCALAPPDATA%\JudgeDee` → 临时目录 的顺序找可写位置，
 自动挑第一个能写的，状态栏会说明换到了哪里。想固定位置就设环境变量
-`HOLMES_DESK_HOME=D:\HolmesDesk`。
+`JUDGEDEE_HOME=D:\JudgeDee`。
 
 ## 注意
 
@@ -394,14 +402,14 @@ pwsh -File build\build.ps1
 
 ```bash
 python -m pip install -e ".[export,build]"
-python -m holmes_desk --selftest     # 2 秒后自动关窗
-python -m holmes_desk --search L71615 --sites GitHub,Reddit
+python -m judgedee --selftest     # 2 秒后自动关窗
+python -m judgedee --search L71615 --sites GitHub,Reddit
 ```
 
 目录结构：
 
 ```
-holmes_desk/
+judgedee/
   engine.py        检索引擎（并发、判定、{?} 展开、可中断）
   sitelib.py       站点库：分组 / 中文名 / 启用禁用 / 自定义 / 导入导出
   verify.py        已注册结果二次复核
@@ -410,7 +418,7 @@ holmes_desk/
   trace.py         IP 归属地与手机号解析（离线）
   history.py       本地历史（SQLite）
   export.py        TXT/CSV/XLSX/HTML/JSONL 导出
-  config.py        %APPDATA%\HolmesDesk\config.json 读写
+  config.py        %APPDATA%\JudgeDee\config.json 读写
   presets.py       站点预设分组
   platform_win.py  DPI、系统代理、桌面快捷方式
   paths.py         资源路径（兼容 PyInstaller）
@@ -427,8 +435,37 @@ build/             打包脚本、图标生成、启动器源码
 tests/             单元测试（python -m unittest discover -s tests）
 ```
 
-便携模式：设环境变量 `HOLMES_DESK_HOME=<目录>`，配置、站点库、历史都会写到那个目录下，
-不碰 `%APPDATA%`（U 盘或测试环境用）。
+便携模式：设环境变量 `JUDGEDEE_HOME=<目录>`，配置、站点库、历史都会写到那个目录下，
+不碰 `%APPDATA%`（U 盘或测试环境用）。从 v1 升上来的用户不用手动搬数据：程序首次启动会把
+`%APPDATA%\HolmesDesk` 里的配置、站点库、历史、约束、头像复制到新目录。
+
+## 关于
+
+**JudgeDee（狄仁杰）· 本地人物情报工作台** —— 桌面程序，当前版本 `2.0.0`。
+
+它把三件事放进同一个窗口：
+
+| 能力 | 你会得到什么 |
+|---|---|
+| 账号检索 | 一个用户名在 481 个站点上的注册情况，含链接、状态、HTTP 码、耗时 |
+| 人物重建 | 账号 → 档案的聚类、证据两两对比、可视图谱、人物看板、换名同人建议、变体扫查 |
+| 周边线索 | IP 归属地（国家/城市/经纬度/ISP/ASN/代理与机房标记）、手机号离线解析 |
+
+**技术形态**：Python 3.11 + tkinter，单进程桌面应用；站点表（`judgedee/data/data.json`）、
+判定规则、图标全部随程序分发，检索时直连目标站点，不经过任何中转服务。
+必装依赖只有 `requests`；`pandas + openpyxl`（XLSX 导出）、`Pillow`（头像指纹）、
+`phonenumbers`（手机号解析）都是可选项，缺了只是对应功能提示装依赖，不影响其余部分。
+
+**数据都在本地**：配置与历史在 `%APPDATA%\JudgeDee\`（不可写时自动退到程序目录或临时目录），
+历史是普通 SQLite 文件，随时可清空。唯一的对外请求是检索本身、IP 查询（ip-api.com，失败退 ipinfo.io）
+以及 `--install-shortcut` 时调用本机 PowerShell 建快捷方式。
+
+**代码**：全部为本项目自行实现，MIT 许可；站点清单与判定思路整理自公开资料，第三方归属见 [NOTICE](NOTICE)。
+仓库地址：<https://github.com/L71615/judgedee>。
+
+程序里的「设置 → 关于」写的是同一份内容，随时可查：
+
+![关于](docs/shot-about.png)
 
 ## 许可证
 

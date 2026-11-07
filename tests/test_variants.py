@@ -2,7 +2,7 @@
 
 import unittest
 
-from holmes_desk import variants
+from judgedee import variants
 
 
 class VariantTest(unittest.TestCase):

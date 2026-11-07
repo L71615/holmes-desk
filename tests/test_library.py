@@ -7,10 +7,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from holmes_desk.engine import QueryStatus
-from holmes_desk.history import History
-from holmes_desk.paths import SITE_DATA_PATH
-from holmes_desk.sitelib import DEFAULT_GROUP, SiteLibrary, validate_site
+from judgedee.engine import QueryStatus
+from judgedee.history import History
+from judgedee.paths import SITE_DATA_PATH
+from judgedee.sitelib import DEFAULT_GROUP, SiteLibrary, validate_site
 
 GOOD_SITE = {
     "url": "https://example.com/{}",
@@ -135,13 +135,13 @@ class TestHistory(unittest.TestCase):
 
 class TestVerify(unittest.TestCase):
     def test_skips_unknown_sites(self):
-        from holmes_desk.verify import verify_claimed
+        from judgedee.verify import verify_claimed
 
         self.assertEqual(verify_claimed([("u", "不存在")], {}), [])
         self.assertEqual(verify_claimed([], {}), [])
 
     def test_verdict_mapping(self):
-        from holmes_desk.verify import verify_claimed
+        from judgedee.verify import verify_claimed
 
         fake = [
             {"username": "u", "site": "GitHub", "verdict": "confirmed", "status": QueryStatus.CLAIMED,
@@ -149,7 +149,7 @@ class TestVerify(unittest.TestCase):
             {"username": "u", "site": "Reddit", "verdict": "suspect", "status": QueryStatus.AVAILABLE,
              "http": 404, "elapsed": 0.1, "message": ""},
         ]
-        with mock.patch("holmes_desk.verify.verify_one", side_effect=fake):
+        with mock.patch("judgedee.verify.verify_one", side_effect=fake):
             out = verify_claimed(
                 [("u", "GitHub"), ("u", "Reddit")],
                 {"GitHub": GOOD_SITE, "Reddit": GOOD_SITE},

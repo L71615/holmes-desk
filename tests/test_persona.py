@@ -2,8 +2,8 @@
 
 import unittest
 
-from holmes_desk.identity import Account, Cluster
-from holmes_desk.persona import build_persona, coverage
+from judgedee.identity import Account, Cluster
+from judgedee.persona import build_persona, coverage
 
 
 def account(site, username="alice", **kwargs):

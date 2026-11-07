@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import unittest
 
-from holmes_desk.graph import cluster_layout
-from holmes_desk.identity import Account, Cluster
-from holmes_desk.profile import _pick_links, _visible_text, fetch_one
+from judgedee.graph import cluster_layout
+from judgedee.identity import Account, Cluster
+from judgedee.profile import _pick_links, _visible_text, fetch_one
 
 MAIN_PAGE = """
 <html lang="zh-CN"><head>

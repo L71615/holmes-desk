@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from holmes_desk.history import History
+from judgedee.history import History
 
 
 def rows(sites, status="claimed"):

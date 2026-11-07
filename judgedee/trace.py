@@ -40,7 +40,7 @@ PHONE_TYPE_TEXT = {
     99: "未知",
 }
 
-USER_AGENT = "HolmesDesk/1.0 (+https://github.com/L71615/holmes-desk)"
+USER_AGENT = "JudgeDee/1.0 (+https://github.com/L71615/judgedee)"
 
 
 def _session(proxy: str | None):

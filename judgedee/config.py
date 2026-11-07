@@ -1,8 +1,8 @@
 """设置持久化。
 
-默认存到 ``%APPDATA%\\HolmesDesk\\config.json``；如果那里写不进去（企业策略、
+默认存到 ``%APPDATA%\\JudgeDee\\config.json``；如果那里写不进去（企业策略、
 Defender 受控文件夹访问、只读配置盘……），会依次退到 ``%LOCALAPPDATA%``、
-程序目录下的 ``.holmesdesk``、临时目录，最后用系统临时目录兜底。
+程序目录下的 ``.judgedee``、临时目录，最后用系统临时目录兜底。
 
 原则：**配置存哪里都不该阻断启动**，所以这里不抛异常。
 """
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -39,7 +40,7 @@ DEFAULTS: dict[str, Any] = {
 
 def _candidates() -> list[Path]:
     """按优先级列出配置目录候选。"""
-    override = os.environ.get("HOLMES_DESK_HOME")
+    override = os.environ.get("JUDGEDEE_HOME") or os.environ.get("HOLMES_DESK_HOME")
     if override:
         return [Path(override).expanduser()]
 
@@ -51,16 +52,42 @@ def _candidates() -> list[Path]:
     else:
         bases = [os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")), "/tmp"]
 
-    dirs = [Path(base) / "HolmesDesk" for base in bases]
+    dirs = [Path(base) / "JudgeDee" for base in bases]
     # 程序目录（解压到哪就在哪放一份，用户可见、基本一定可写）
-    dirs.append(Path(__file__).resolve().parent.parent / ".holmesdesk")
+    dirs.append(Path(__file__).resolve().parent.parent / ".judgedee")
     # 系统临时目录（最后手段，重启会清）
-    dirs.append(Path(tempfile.gettempdir()) / "HolmesDesk")
+    dirs.append(Path(tempfile.gettempdir()) / "JudgeDee")
     return dirs
 
 
 _DIR_CACHE: Path | None = None
 _DIR_ERROR = ""
+_MIGRATED = False
+
+
+def _migrate_legacy(target: Path) -> None:
+    """v1 叫 HolmesDesk，配置散在 ``%APPDATA%\\HolmesDesk``；搬到新目录，只搬一次。"""
+    global _MIGRATED
+    if _MIGRATED:
+        return
+    _MIGRATED = True
+    try:
+        legacy = target.parent / "HolmesDesk"
+        if not legacy.is_dir() or legacy == target:
+            return
+        if target.is_dir() and any(target.iterdir()):
+            return
+        target.mkdir(parents=True, exist_ok=True)
+        for item in legacy.iterdir():
+            dest = target / item.name
+            if dest.exists():
+                continue
+            if item.is_dir():
+                shutil.copytree(item, dest, dirs_exist_ok=True)
+            else:
+                shutil.copy2(item, dest)
+    except OSError:
+        pass
 
 
 def _usable(path: Path) -> bool:
@@ -85,6 +112,7 @@ def config_dir() -> Path:
 
     errors: list[str] = []
     for candidate in _candidates():
+        _migrate_legacy(candidate)
         if _usable(candidate):
             if errors:
                 _DIR_ERROR = "配置目录不可写，已改用 " + str(candidate)
@@ -93,12 +121,12 @@ def config_dir() -> Path:
         errors.append(str(candidate))
 
     try:
-        fallback = Path(tempfile.mkdtemp(prefix="holmesdesk-"))
+        fallback = Path(tempfile.mkdtemp(prefix="judgedee-"))
         _DIR_ERROR = "配置目录全部不可写，本次使用临时目录 " + str(fallback)
         _DIR_CACHE = fallback
         return fallback
     except OSError:  # 兜到底还是不行，也只能给个占位路径
-        home = Path.home() / ".holmesdesk"
+        home = Path.home() / ".judgedee"
         _DIR_ERROR = "配置目录不可写，设置将不会保存（" + "；".join(errors) + "）"
         _DIR_CACHE = home
         return home

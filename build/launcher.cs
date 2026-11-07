@@ -5,9 +5,9 @@ using System.Text;
 using System.Windows.Forms;
 
 // 源码模式下的启动器：编译成带图标的 exe，快捷方式指向它，
-// 由它去拉起 python -m holmes_desk，并把子进程的输出写进日志。
+// 由它去拉起 python -m judgedee，并把子进程的输出写进日志。
 // 双击失败时不再"静默无反应"：非零退出会把 traceback 直接弹出来。
-class HolmesDeskLauncher
+class JudgeDeeLauncher
 {
     static string logPath;
     static readonly object gate = new object();
@@ -17,14 +17,14 @@ class HolmesDeskLauncher
     static void Main()
     {
         string dir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
-        logPath = Path.Combine(dir, "holmesdesk-launcher.log");
+        logPath = Path.Combine(dir, "judgedee-launcher.log");
 
         try
         {
             string py = FindPythonW();
             Log("launch  dir=" + dir + "  python=" + py);
 
-            ProcessStartInfo psi = new ProcessStartInfo(py, "-m holmes_desk");
+            ProcessStartInfo psi = new ProcessStartInfo(py, "-m judgedee");
             psi.WorkingDirectory = dir;
             psi.UseShellExecute = false;
             psi.CreateNoWindow = true;
@@ -66,10 +66,10 @@ class HolmesDeskLauncher
                 lock (gate) { detail = stderrBuf.ToString().Trim(); }
                 if (detail.Length > 1500) detail = detail.Substring(detail.Length - 1500);
                 MessageBox.Show(
-                    "HolmesDesk 启动失败（退出码 " + p.ExitCode + "）。\n\n"
+                    "JudgeDee 启动失败（退出码 " + p.ExitCode + "）。\n\n"
                         + (detail.Length > 0 ? detail : "没有输出，详见日志。")
                         + "\n\n日志：" + logPath,
-                    "HolmesDesk",
+                    "JudgeDee",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -79,7 +79,7 @@ class HolmesDeskLauncher
             Log("ERROR " + ex);
             MessageBox.Show(
                 "启动失败：" + ex.Message + "\n\n详见 " + logPath,
-                "HolmesDesk",
+                "JudgeDee",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
         }
