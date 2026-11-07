@@ -14,8 +14,21 @@ import webbrowser
 from tkinter import messagebox, ttk
 
 from ..graph import Edge, account_key, build_edges, cluster_layout, degrees, layout, node_radius
-from ..identity import Account, Cluster, score_pair
+from ..identity import REVIEW_THRESHOLD, Account, Cluster, score_pair
 from . import theme
+
+
+def _tint(color: str, factor: float) -> str:
+    """把调色板颜色往白色方向调，factor 越小越淡（0=白，1=原色）。"""
+    color = color.lstrip("#")
+    if len(color) != 6:
+        return "#eef1f6"
+    r, g, b = (int(color[i : i + 2], 16) for i in (0, 2, 4))
+    out = []
+    for value in (r, g, b):
+        mixed = int(round(255 - (255 - value) * factor))
+        out.append(max(0, min(255, mixed)))
+    return "#%02x%02x%02x" % tuple(out)
 
 PALETTE = [
     "#2563eb",
@@ -46,6 +59,8 @@ class GraphPage(ttk.Frame):
         self.color: dict[str, str] = {}
         self.selected: list[str] = []
         self.strong_only = False
+        self.show_weak = True
+        self.cluster_of: dict[str, Cluster] = {}
         self.zoom = 1.0
         self.ox = 0.0
         self.oy = 0.0
@@ -67,6 +82,10 @@ class GraphPage(ttk.Frame):
             bar, text="只看强证据", style="Ghost.TButton", command=self.toggle_strong
         )
         self.btn_strong.pack(side="left", padx=px(8))
+        self.btn_weak = ttk.Button(
+            bar, text="隐藏弱证据", style="Ghost.TButton", command=self.toggle_weak
+        )
+        self.btn_weak.pack(side="left", padx=(0, px(8)))
         self.btn_merge = ttk.Button(
             bar, text="合并为同一人", style="Ghost.TButton", command=self.mark_same, state="disabled"
         )
@@ -82,7 +101,7 @@ class GraphPage(ttk.Frame):
 
         self.lbl_hint = ttk.Label(
             bar,
-            text="实线=强证据 · 虚线=弱证据 · 拖动/滚轮 · Ctrl 点两个节点纠错",
+            text="底色＝同一档案 · 圈大＝证据强 · 深蓝实线＝强证据",
             style="Hint.TLabel",
         )
         self.lbl_hint.pack(side="right")
@@ -154,10 +173,29 @@ class GraphPage(ttk.Frame):
         self.pos = {key: (raw[key][0] / width, raw[key][1] / height) for key in keys if key in raw}
         degree = degrees(keys, self.edges)
         max_degree = max(degree.values()) if degree else 0.0
-        self.radius = {
-            key: node_radius(degree[key], max_degree, base=self.px(11), span=self.px(13))
-            for key in keys
-        }
+        _ = max_degree  # 度数不再决定大小，保留统计以便后续扩展
+
+        self.cluster_of = {}
+        for cluster in self.clusters:
+            for account in cluster.accounts:
+                self.cluster_of[account_key(account)] = cluster
+
+        base = self.px(9)
+        span = self.px(11)
+        self.radius = {}
+        for key in keys:
+            cluster = self.cluster_of.get(key)
+            if cluster is None:
+                self.radius[key] = base
+                continue
+            conf = 0.0
+            try:
+                conf = max(0.0, min(1.0, float(getattr(cluster, "score", 0.0) or 0.0)))
+            except (TypeError, ValueError):
+                conf = 0.0
+            if len(cluster.accounts) == 1:
+                conf = min(conf, 0.5)
+            self.radius[key] = base + span * conf
         self.color = {}
         for index, cluster in enumerate(self.clusters):
             for account in cluster.accounts:
@@ -181,14 +219,53 @@ class GraphPage(ttk.Frame):
             y = margin_y + point[1] * (height - 2 * margin_y)
             return x * zoom + ox, y * zoom + oy
 
+        # 先铺档案底色：同一档案的点被一块浅色圆托住，一眼看出「几团人」
+        for index, cluster in enumerate(self.clusters):
+            points = [
+                to_screen(self.pos[account_key(account)])
+                for account in cluster.accounts
+                if account_key(account) in self.pos
+            ]
+            if not points:
+                continue
+            cx = sum(p[0] for p in points) / len(points)
+            cy = sum(p[1] for p in points) / len(points)
+            spread = max((((p[0] - cx) ** 2 + (p[1] - cy) ** 2) ** 0.5 for p in points), default=0.0)
+            radius = spread + max(
+                (self.radius.get(account_key(a), self.px(9)) for a in cluster.accounts), default=0.0
+            ) * zoom + self.px(20) * zoom
+            tint = _tint(PALETTE[index % len(PALETTE)], 0.16)
+            canvas.create_oval(
+                cx - radius,
+                cy - radius,
+                cx + radius,
+                cy + radius,
+                fill=tint,
+                outline=_tint(PALETTE[index % len(PALETTE)], 0.28),
+                width=1,
+            )
+            canvas.create_text(
+                cx,
+                cy - radius - self.px(8) * zoom,
+                text=f"档案 {cluster.label} · {len(cluster.accounts)} 个账号",
+                fill=_tint(PALETTE[index % len(PALETTE)], 0.85),
+                font=(theme.FONT, 9, "bold"),
+            )
+
         for edge in self.edges:
             if edge.a not in self.pos or edge.b not in self.pos:
+                continue
+            if not self.show_weak and not edge.strong and edge.score < REVIEW_THRESHOLD:
                 continue
             x1, y1 = to_screen(self.pos[edge.a])
             x2, y2 = to_screen(self.pos[edge.b])
             if edge.strong:
                 canvas.create_line(
-                    x1, y1, x2, y2, fill=theme.ACCENT, width=max(1, int(2.2 * zoom)), smooth=True
+                    x1, y1, x2, y2, fill=theme.ACCENT, width=max(1, int(2.4 * zoom)), smooth=True
+                )
+            elif edge.score >= REVIEW_THRESHOLD:
+                canvas.create_line(
+                    x1, y1, x2, y2, fill="#8fa0b8", width=max(1, int(1.5 * zoom)), smooth=True
                 )
             else:
                 canvas.create_line(
@@ -196,9 +273,9 @@ class GraphPage(ttk.Frame):
                     y1,
                     x2,
                     y2,
-                    fill="#b9c2d0",
+                    fill="#b7c2d4",
                     width=max(1, int(1.2 * zoom)),
-                    dash=(4, 3),
+                    dash=(3, 4),
                 )
 
         for account in self.accounts:
@@ -326,6 +403,11 @@ class GraphPage(ttk.Frame):
         self.strong_only = not self.strong_only
         self.btn_strong.configure(text="显示全部证据" if self.strong_only else "只看强证据")
         self.refresh()
+
+    def toggle_weak(self) -> None:
+        self.show_weak = not self.show_weak
+        self.btn_weak.configure(text="显示弱证据" if not self.show_weak else "隐藏弱证据")
+        self._draw()
 
     # ---------- 纠错 ----------
     def _update_buttons(self) -> None:
