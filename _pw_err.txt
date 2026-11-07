@@ -1,5 +1,0 @@
-[1107/010806:WARNING:ipc_channel_win.cc(318)] Unable to create pipe "\\.\pipe\iflyime.{8B4A3D2A-FAF4-4BA0-BE57-4D088B30B0A9}" in client mode. Error :5
-[1107/010806:WARNING:ipc_channel_win.cc(318)] Unable to create pipe "\\.\pipe\iflyime.{DCDC984B-13B4-440D-B39B-E271F1C4A4F3}" in client mode. Error :5
-[1107/010807:WARNING:ipc_channel_win.cc(318)] Unable to create pipe "\\.\pipe\iflyime.{CE185DFB-0D45-45B7-BA56-8A895F897BC2}" in client mode. Error :5
-[1107/010809:WARNING:ipc_channel_win.cc(318)] Unable to create pipe "\\.\pipe\iflyime.{B1356CAA-70A9-41A7-B433-3A6460D367BC}" in client mode. Error :5
-[1107/010811:WARNING:ipc_channel_win.cc(318)] Unable to create pipe "\\.\pipe\iflyime.{BC9EE500-43E4-48A6-B455-4D3A89821AC8}" in client mode. Error :5
