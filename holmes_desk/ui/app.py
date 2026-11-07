@@ -17,6 +17,7 @@ from . import theme
 
 NAV_ITEMS = (
     ("search", "检索"),
+    ("trace", "追踪"),
     ("graph", "图谱"),
     ("sites", "站点库"),
     ("history", "历史"),
@@ -151,6 +152,10 @@ class Shell(tk.Tk):
             from .page_search import SearchPage
 
             return SearchPage(self.content, self)
+        if key == "trace":
+            from .page_trace import TracePage
+
+            return TracePage(self.content, self)
         if key == "graph":
             from .page_graph import GraphPage
 

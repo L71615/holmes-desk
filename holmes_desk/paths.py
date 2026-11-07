@@ -23,5 +23,5 @@ def app_dir() -> Path:
 
 
 SITE_DATA_PATH = resource_path("data", "data.json")
-ICON_PATH = resource_path("assets", "sherlock.ico")
-EXE_ICON_PATH = resource_path("assets", "sherlock-app.ico")
+ICON_PATH = resource_path("assets", "holmesdesk.ico")
+EXE_ICON_PATH = resource_path("assets", "holmesdesk-app.ico")

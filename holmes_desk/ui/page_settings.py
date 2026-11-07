@@ -113,8 +113,9 @@ class SettingsPage(ttk.Frame):
             text=(
                 f"{__app_name_zh__} v{__version__} —— 本地单机，一次装好，离线可用。\n"
                 f"站点库现有 {self.shell.lib.count()} 个站点，全部内置，不联网更新。\n"
-                "判定规则参考 sherlock-project/sherlock（MIT），站点表同源，本程序与其无运行依赖。\n"
-                "只依赖 requests；导出 XLSX 时才需要 pandas + openpyxl。"
+                "检索、身份分析、图谱、IP 与手机号归属地都在本机完成，不经过任何中转服务器。\n"
+                "只依赖 requests；XLSX 导出需要 pandas + openpyxl，头像比对需要 Pillow，\n"
+                "手机号解析需要 phonenumbers（离线号码库）。"
             ),
             style="Hint.TLabel", justify="left", wraplength=self.px(760),
         ).pack(anchor="w")

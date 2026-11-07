@@ -1,4 +1,4 @@
-﻿# HolmesDesk 打包脚本：生成 dist\HolmesDesk.exe（单文件、免安装、带图标）
+# HolmesDesk 打包脚本：生成 dist\HolmesDesk.exe（单文件、免安装、带图标）
 # 用法：pwsh -File build\build.ps1
 $ErrorActionPreference = "Stop"
 
@@ -12,7 +12,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-$icon = Join-Path $root "holmes_desk\assets\sherlock-app.ico"
+$icon = Join-Path $root "holmes_desk\assets\holmesdesk-app.ico"
 
 Write-Host "==> PyInstaller 打包" -ForegroundColor Cyan
 python -m PyInstaller `

@@ -14,6 +14,7 @@ from pathlib import Path
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
+ASSETS = HERE.parent / "holmes_desk" / "assets"
 
 
 def dib_bytes(img: Image.Image) -> bytes:
@@ -62,6 +63,12 @@ def write_ico(src_png: Path, out_ico: Path, sizes=(16, 24, 32, 48, 64, 128, 256)
 
 
 if __name__ == "__main__":
-    src = Image.open(HERE / "assets" / "sherlock.png")
-    out = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE / "assets" / "sherlock-app.ico"
-    write_ico(HERE / "assets" / "sherlock.png", out)
+    # 以仓库里现成的 256 帧为源，重写一份「BMP 帧 + 256 PNG」的 ico
+    ico = ASSETS / "holmesdesk-app.ico"
+    out = Path(sys.argv[1]) if len(sys.argv) > 1 else ico
+    base = Image.open(ico)
+    base.size = (256, 256)
+    tmp = HERE / "_icon_src.png"
+    base.convert("RGBA").save(tmp)
+    write_ico(tmp, out)
+    tmp.unlink()

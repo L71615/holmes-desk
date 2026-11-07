@@ -299,9 +299,9 @@ class SearchPage(ttk.Frame):
         status_row = ttk.Frame(right, style="TFrame")
         status_row.pack(fill="x", pady=(0, px(6)))
         self.lbl_status = ttk.Label(
-            status_row, text="就绪", style="TLabel", foreground=theme.MUTED, anchor="e"
+            status_row, text="就绪", style="TLabel", foreground=theme.MUTED, anchor="w"
         )
-        self.lbl_status.pack(side="right")
+        self.lbl_status.pack(side="left")
 
         self.progress = ttk.Progressbar(right, mode="determinate", maximum=1)
         self.progress.pack(fill="x")
@@ -1056,7 +1056,7 @@ class SearchPage(ttk.Frame):
         if self.cancel_event.is_set():
             return
         elapsed = time.time() - self.started_at
-        self._status(f"完成 · {len(self.rows)} 个命中 · 用时 {elapsed:.1f} 秒")
+        self._status(f"完成 · {len(self.rows)} 命中 · {elapsed:.1f} 秒")
         if self.run_rows:
             try:
                 self.shell.hist.add_run(

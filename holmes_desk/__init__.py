@@ -1,11 +1,11 @@
-"""HolmesDesk —— 本地化的用户名检索工作台。
+"""HolmesDesk —— 本地人物情报工作台。
 
-基于 sherlock-project/sherlock（MIT）的检测逻辑重写而来，去掉了所有
-联网到上游的运行依赖：站点表、判定规则、图标全部随程序分发。
+三块能力：按用户名检索 481 个站点、用主页证据把账号拼成「一个人」、
+查 IP 与手机号归属地。站点表、判定规则、图标全部随程序分发，运行时不依赖任何在线服务。
 """
 
-__version__ = "0.9.0"
+__version__ = "1.0.0"
 __app_name__ = "HolmesDesk"
-__app_name_zh__ = "HolmesDesk 用户名检索"
+__app_name_zh__ = "HolmesDesk 人物情报"
 
 __all__ = ["__version__", "__app_name__", "__app_name_zh__"]

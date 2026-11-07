@@ -1,7 +1,8 @@
-# HolmesDesk · 用户名检索（本地桌面版）
+# HolmesDesk · 本地人物情报工作台
 
-> 输入一个用户名，看它在 481 个网站上有没有被注册。
-> 纯本地运行，不联网拉站点表、不经过任何第三方服务器，结果直接导出成 TXT / CSV / XLSX / HTML / JSONL。
+> 输入一个用户名，看它在 481 个网站上有没有被注册；再顺着主页证据把散落的账号拼成「一个人」。
+> 另有 IP 归属地与手机号归属地两个小工具。纯本地运行，不联网拉站点表、不经过任何第三方服务器，
+> 结果直接导出成 TXT / CSV / XLSX / HTML / JSONL。
 
 ![检索页](docs/shot-search.png)
 
@@ -10,12 +11,18 @@
 
 ## 这是什么
 
-HolmesDesk 是一个 Windows 桌面小程序：填用户名 → 点开始 → 得到一份「这个人在哪些站有账号」的清单。
+HolmesDesk 是一个 Windows 桌面小程序，眼下做三件事：
 
-它的前身是命令行的 [sherlock](https://github.com/sherlock-project/sherlock)，这个仓库是把那套思路重做成**中文图形界面 + 单机可分发**的版本：
+1. **账号检索**：填用户名 → 点开始 → 得到一份「这个人在哪些站有账号」的清单。
+2. **人物重建**：抓主页上的昵称、头像、简介、外链，判断哪几个账号其实是同一个人，
+   拼成「档案 A / B / C」，给出证据与可信度。
+3. **周边线索**：IP 归属地（国家、城市、运营商、经纬度）、手机号归属地（本地离线解析）。
 
-- **不依赖上游 API**：站点表（481 个站）随程序打包，气隙环境也能跑；上游改接口不会让它崩。
-- **只依赖 requests**：没有 pandas、没有 browsercookie，装完 10 MB 出头。
+设计上刻意保持简单：
+
+- **站点表随程序打包**（481 个站），不联网更新，气隙环境也能跑；换接口不会让它崩。
+- **只依赖 requests**：没有 pandas、没有 browsercookie，装完 10 MB 出头；
+  可选装 phonenumbers（手机号解析）与 Pillow（头像指纹）。
 - **双击即用**：桌面图标点开就是界面，不用开终端、不用记参数。
 - **结果能直接给人看**：HTML 报告是单文件，发给别人双击就能看。
 
@@ -46,9 +53,9 @@ holmes-desk --install-shortcut
 要求 Python 3.9+（推荐 3.11）。只需要 `requests`。
 想导出 XLSX 再装一个可选依赖：`python -m pip install -e ".[export]"`（pandas + openpyxl）。
 
-## 五个页面
+## 六个页面
 
-左侧导航切换：**检索 / 图谱 / 站点库 / 历史 / 设置**。
+左侧导航切换：**检索 / 追踪 / 图谱 / 站点库 / 历史 / 设置**。
 
 ### 检索
 
@@ -86,6 +93,23 @@ holmes-desk --install-shortcut
 改动存在 `%APPDATA%\HolmesDesk\sites_user.json`，不碰内置的 `data.json`——所以升级程序不会丢你自己的改动，想全清就删这个文件。
 
 ![站点库](docs/shot-sites.png)
+
+### 追踪
+
+两块小工具，用来给一份身份档案补上「在哪儿」这一层：
+
+**IP 归属地**：填 IPv4 / IPv6，或点「我的 IP」查本机出口地址。返回国家、地区、城市、邮编、
+经纬度、时区、ISP、组织、ASN，以及「移动网络 / 代理 VPN / 机房托管」三个标记；
+「打开地图」按坐标跳到 Google Maps。查询走 ip-api.com，失败自动退 ipinfo.io。
+
+**手机号归属地**：填号码（可带 `+86`，或选默认地区），返回号码类型（手机/固话/网络电话…）、
+是否有效、国家地区、归属地、运营商、时区、国际格式、本地格式、E.164。
+这一步**完全离线**——用的是 phonenumbers 的号码段库，号码不会发给任何服务器。
+
+结果表双击任意一行可复制单个值，底部按钮可整表复制。IP 查询只把被查的 IP 发给查询接口，
+不附带任何本机信息。
+
+![追踪](docs/shot-trace.png)
 
 ### 复核
 
@@ -199,7 +223,7 @@ holmes-desk --install-shortcut
 
 ### 变体扫查
 
-真实的人不会在每个站都用同一个 ID：`sherlock`、`crazy_sherlock`、`s.dyke` 很可能是一个人。
+真实的人不会在每个站都用同一个 ID：`L71615`、`L71615_dev`、`l71615backup` 很可能是一个人。
 「变体扫查」就是把这层猜测变成下一轮检索：
 
 - 从**已命中账号的昵称**（不是用户名）生成候选：拆分名字与姓氏的顺序、换分隔符（`.` `_` `-` `空`）、
@@ -279,7 +303,7 @@ holmes-desk --install-shortcut
 
 ### HTML 报告里的图谱
 
-如果先做过身份分析再导出报告，HTML 会多两块内容（`docs/sample-report/sherlock.html` 是个真实样例）：
+如果先做过身份分析再导出报告，HTML 会多两块内容（`docs/sample-report/L71615.html` 是个样例）：
 
 1. **身份图谱**：SVG 画的账号关系图，圆点颜色 = 档案，实线强证据 / 虚线弱证据；
    鼠标移到点上是高亮它的连线，点一下弹出昵称、简介、链接。纯 SVG + 二十来行原生 JS，
@@ -294,7 +318,7 @@ holmes-desk --install-shortcut
 不开界面也能跑，方便写成脚本：
 
 ```bash
-holmes-desk --search sherlock --sites GitHub,Reddit,GitLab --proxy http://127.0.0.1:7897
+holmes-desk --search L71615 --sites GitHub,Reddit,GitLab --proxy http://127.0.0.1:7897
 holmes-desk --search alice --all          # 连未注册的站点一起打印
 ```
 
@@ -334,17 +358,17 @@ pwsh -File build\build.ps1
 
 改完重启程序即可，无需重新打包（源码模式下）。
 
-## 和上游 sherlock 的关系
+## 第三方数据与许可
 
-数据与思路来自 [sherlock](https://github.com/sherlock-project/sherlock)（MIT），
-界面、引擎、导出、打包全部重写，运行时不依赖也不调用上游任何服务。
-详见 [NOTICE](NOTICE)。
+站点表来自公开的 OSINT 站点清单，判定规则由本项目自行实现；完整归属声明见 [NOTICE](NOTICE)。
 
 ## 隐私
 
 - 所有请求从你本机直接发往目标站点，程序不收集、不上传任何数据。
-- 唯一的「外联」是检索本身，以及 `--install-shortcut` 时调用本机 PowerShell 建快捷方式。
-- 配置和历史只存在本机 `%APPDATA%\HolmesDesk\`。
+- IP 查询会把被查的 IP 发给 ip-api.com / ipinfo.io（两个公开查询接口），除此之外不带任何个人信息。
+- 手机号解析完全离线，号码不出本机。
+- 唯一的「外联」是检索、IP 查询本身，以及 `--install-shortcut` 时调用本机 PowerShell 建快捷方式。
+- 配置和历史只存在本机 `%APPDATA%\HolmesDesk\`（不可写时自动退到程序目录或临时目录）。
 
 ## 常见问题
 
@@ -371,7 +395,7 @@ pwsh -File build\build.ps1
 ```bash
 python -m pip install -e ".[export,build]"
 python -m holmes_desk --selftest     # 2 秒后自动关窗
-python -m holmes_desk --search sherlock --sites GitHub,Reddit
+python -m holmes_desk --search L71615 --sites GitHub,Reddit
 ```
 
 目录结构：
@@ -383,6 +407,7 @@ holmes_desk/
   verify.py        已注册结果二次复核
   profile.py       主页画像采集（昵称 / 简介 / 头像哈希）
   identity.py      证据打分与身份聚类（同名≠同人）
+  trace.py         IP 归属地与手机号解析（离线）
   history.py       本地历史（SQLite）
   export.py        TXT/CSV/XLSX/HTML/JSONL 导出
   config.py        %APPDATA%\HolmesDesk\config.json 读写
@@ -392,6 +417,7 @@ holmes_desk/
   data/data.json   481 个站点
   ui/app.py        Shell 主窗口 + 左侧导航
   ui/page_search.py   检索页
+  ui/page_trace.py    追踪页（IP / 手机号）
   ui/dialog_identity.py 身份档案窗口（证据视图）
   ui/page_sites.py    站点库页
   ui/page_history.py  历史页
@@ -406,4 +432,4 @@ tests/             单元测试（python -m unittest discover -s tests）
 
 ## 许可证
 
-MIT，见 [LICENSE](LICENSE)。站点数据来自 sherlock（MIT），见 [NOTICE](NOTICE)。
+MIT，见 [LICENSE](LICENSE)。第三方站点清单的归属声明见 [NOTICE](NOTICE)。

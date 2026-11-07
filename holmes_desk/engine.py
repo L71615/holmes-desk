@@ -1,10 +1,9 @@
 """检测引擎。
 
-这是从 sherlock-project/sherlock（MIT）的 ``sherlock()`` 重写出来的精简版：
-只保留"判断某个用户名在某站点是否存在"这件事，去掉命令行界面、pandas 导出、
-requests-futures 依赖，改用一个线程池 + 普通 ``requests.Session``。
+只做一件事：判断某个用户名在某个站点上是否存在。用的是线程池 + 普通
+``requests.Session``，没有命令行界面，也不依赖 pandas。
 
-判定规则与上游保持一致：
+判定按站点表的 ``errorType`` 分三种：
 
 * ``status_code``   —— 先认为存在；状态码命中 ``errorCode`` 或非 2xx/3xx 则判为不存在
 * ``message``       —— 在页面里找 ``errorMsg`` 文案；找到 = 不存在
