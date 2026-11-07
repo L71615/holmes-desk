@@ -6,6 +6,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from .. import groups as groups_mod
 from .. import i18n
 from ..sitelib import DEFAULT_GROUP, ERROR_TYPES, ERROR_TYPE_TEXT, validate_site
 from . import theme
@@ -218,6 +219,9 @@ class SitesPage(ttk.Frame):
             side="left", padx=px(8)
         )
         ttk.Button(actions, text=i18n.t("恢复内置"), style="Ghost.TButton", command=self._reset).pack(side="left")
+        ttk.Button(
+            actions, text=i18n.t("自动分组"), style="Accent.TButton", command=self._auto_group
+        ).pack(side="left", padx=px(8))
         ttk.Button(actions, text=i18n.t("删除自定义站点"), style="Danger.TButton", command=self._delete).pack(
             side="left", padx=px(8)
         )
@@ -352,6 +356,26 @@ class SitesPage(ttk.Frame):
         self.lib.save()
         self.refresh()
         self.shell.status(f"已删除 {name}")
+
+    def _auto_group(self) -> None:
+        """按关键词表把「未分组」的站点归到大致类别。"""
+        preview = groups_mod.plan(self.lib)
+        if not preview:
+            messagebox.showinfo(i18n.t("自动分组"), i18n.t("没有可以自动归类的站点"))
+            return
+        total = sum(len(v) for v in preview.values())
+        lines = [f"{group}：{len(names)} 站" for group, names in preview.items()]
+        if not messagebox.askyesno(
+            i18n.t("自动分组"),
+            i18n.t("将把 {n} 个未分组站点归到下面几类，可以随时改：").format(n=total)
+            + "\n\n"
+            + "\n".join(lines),
+        ):
+            return
+        counts = groups_mod.apply(self.lib)
+        self.refresh()
+        self.shell.library_changed()
+        self.shell.status(i18n.t("自动分组完成：{n} 个站点已归类").format(n=sum(counts.values())))
 
     def _export(self) -> None:
         path = filedialog.asksaveasfilename(
