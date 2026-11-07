@@ -4,7 +4,7 @@
 查 IP 与手机号归属地。站点表、判定规则、图标全部随程序分发，运行时不依赖任何在线服务。
 """
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 __app_name__ = "JudgeDee"
 __app_name_zh__ = "JudgeDee 人物情报"
 
