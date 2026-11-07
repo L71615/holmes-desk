@@ -9,12 +9,24 @@
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
 import webbrowser
 from tkinter import messagebox, ttk
 
 from .. import i18n
-from ..graph import Edge, account_key, build_edges, cluster_layout, degrees, layout, node_radius
+from ..graph import (
+    ANCHOR_REVIEW,
+    ANCHOR_STRONG,
+    Edge,
+    account_key,
+    anchor_layout,
+    build_edges,
+    cluster_layout,
+    degrees,
+    layout,
+    node_radius,
+)
 from ..identity import REVIEW_THRESHOLD, Account, Cluster, score_pair
 from . import theme
 
@@ -61,6 +73,8 @@ class GraphPage(ttk.Frame):
         self.selected: list[str] = []
         self.strong_only = False
         self.show_weak = True
+        self.anchor_mode = False
+        self.anchor: dict = {}
         self.cluster_of: dict[str, Cluster] = {}
         self.zoom = 1.0
         self.ox = 0.0
@@ -100,12 +114,19 @@ class GraphPage(ttk.Frame):
         )
         self.btn_clear.pack(side="left")
 
+        self.btn_anchor = ttk.Button(
+            bar, text=i18n.t("锚定视图"), style="Ghost.TButton", command=self.toggle_anchor
+        )
+        self.btn_anchor.pack(side="left", padx=(px(8), 0))
+
+        hint_row = ttk.Frame(self, style="TFrame")
+        hint_row.pack(fill="x", pady=(0, px(6)))
         self.lbl_hint = ttk.Label(
-            bar,
+            hint_row,
             text=i18n.t("底色＝同一档案 · 圈大＝证据强 · 深蓝实线＝强证据"),
             style="Hint.TLabel",
         )
-        self.lbl_hint.pack(side="right")
+        self.lbl_hint.pack(side="left")
 
         body = ttk.Frame(self, style="TFrame")
         body.pack(fill="both", expand=True)
@@ -153,6 +174,11 @@ class GraphPage(ttk.Frame):
         state = getattr(self.shell, "identity", {})
         self.accounts = list(state.get("accounts") or [])
         self.clusters = list(state.get("clusters") or [])
+        self.anchor = dict(getattr(self.shell, "anchor", {}) or {})
+        if self.anchor and not self.anchor_mode:
+            # 刚跑完基准扫描，直接切到锚定视图更有用
+            self.anchor_mode = True
+        self._sync_anchor_button()
         if not self.accounts:
             self.canvas.delete("all")
             self._write("还没有做身份分析。\n\n先去「检索」页跑一次检索，再点「身份分析」，\n这里就会出现账号之间的关系图。")
@@ -167,8 +193,16 @@ class GraphPage(ttk.Frame):
         width = 1000.0
         height = 700.0
         keys = [account_key(account) for account in self.accounts]
-        # 分簇环形布局：每个档案自成一组，不再让力导向把它们挤成一坨
-        raw = cluster_layout(self.clusters, width=width, height=height)
+        seed_key = str(self.anchor.get("seed") or "")
+        raw: dict[str, tuple[float, float]] = {}
+        if self.anchor_mode and seed_key in keys:
+            # 锚定视图：种子固定在中心，候选按证据强度分三圈
+            raw = anchor_layout(
+                keys, seed_key, dict(self.anchor.get("scores") or {}), width=width, height=height
+            )
+        if not raw:
+            # 分簇环形布局：每个档案自成一组，不再让力导向把它们挤成一坨
+            raw = cluster_layout(self.clusters, width=width, height=height)
         if not raw:
             raw = layout(keys, self.edges, width=width, height=height)
         self.pos = {key: (raw[key][0] / width, raw[key][1] / height) for key in keys if key in raw}
@@ -201,6 +235,22 @@ class GraphPage(ttk.Frame):
         for index, cluster in enumerate(self.clusters):
             for account in cluster.accounts:
                 self.color[account_key(account)] = PALETTE[index % len(PALETTE)]
+
+        if self.anchor_mode and seed_key in keys:
+            # 锚定视图里颜色表示「证据等级」，比按档案上色更好读
+            scores = dict(self.anchor.get("scores") or {})
+            for key in keys:
+                if key == seed_key:
+                    self.color[key] = theme.ACCENT
+                    continue
+                score = float(scores.get(key, 0.0))
+                if score >= ANCHOR_STRONG:
+                    self.color[key] = theme.OK
+                elif score >= ANCHOR_REVIEW:
+                    self.color[key] = theme.WARN
+                else:
+                    self.color[key] = theme.GRAY
+
         self._draw()
 
     def _draw(self) -> None:
@@ -220,8 +270,33 @@ class GraphPage(ttk.Frame):
             y = margin_y + point[1] * (height - 2 * margin_y)
             return x * zoom + ox, y * zoom + oy
 
+        # 锚定视图：先画三条参考圈，把「证据多硬」标出来
+        if self.anchor_mode and str(self.anchor.get("seed") or "") in self.pos:
+            cx, cy = to_screen((0.5, 0.5))
+            base = min(width - 2 * margin_x, height - 2 * margin_y)
+            for index, (radius_ratio, label) in enumerate((
+                (0.18, "0.62+"),
+                (0.30, "0.45–0.62"),
+                (0.42, "<0.45"),
+            )):
+                r = base * radius_ratio * zoom
+                canvas.create_oval(
+                    cx - r, cy - r, cx + r, cy + r,
+                    outline="#c9d3e3", dash=(4, 5), width=1,
+                )
+                # 三条圈各挑一个不同角度标数字，短文本 + 分开摆，不会互相压住
+                angle = math.radians(196 + index * 34)
+                canvas.create_text(
+                    cx + r * math.cos(angle), cy + r * math.sin(angle),
+                    text=label,
+                    fill=theme.MUTED, font=(theme.FONT, 9, "bold"),
+                )
+
         # 先铺档案底色：同一档案的点被一块浅色圆托住，一眼看出「几团人」
+        # （锚定视图里已经用同心圈表达距离，再叠底色会糊成一片，所以跳过）
         for index, cluster in enumerate(self.clusters):
+            if self.anchor_mode:
+                break
             points = [
                 to_screen(self.pos[account_key(account)])
                 for account in cluster.accounts
@@ -279,12 +354,16 @@ class GraphPage(ttk.Frame):
                     dash=(3, 4),
                 )
 
+        seed_key = str(self.anchor.get("seed") or "") if self.anchor_mode else ""
         for account in self.accounts:
             key = account_key(account)
             if key not in self.pos:
                 continue
             x, y = to_screen(self.pos[key])
+            is_seed = key == seed_key
             r = max(6.0, self.radius.get(key, self.px(14)) * zoom)
+            if is_seed:
+                r = max(r, self.px(17))
             selected = key in self.selected
             canvas.create_oval(
                 x - r,
@@ -292,15 +371,18 @@ class GraphPage(ttk.Frame):
                 x + r,
                 y + r,
                 fill=self.color.get(key, theme.ACCENT),
-                outline=theme.INK if selected else "white",
-                width=3 if selected else 1,
+                outline=theme.INK if (selected or is_seed) else "white",
+                width=3 if (selected or is_seed) else 1,
             )
+            label = account.site[:22]
+            if is_seed:
+                label = f"{i18n.t('种子')} · {label}"
             canvas.create_text(
                 x,
                 y + r + self.px(9) * zoom,
-                text=account.site[:22],
+                text=label,
                 fill=theme.INK,
-                font=(theme.FONT, 9),
+                font=(theme.FONT, 9, "bold" if is_seed else "normal"),
             )
 
     def _screen_of(self, point: tuple[float, float]) -> tuple[float, float]:
@@ -409,6 +491,25 @@ class GraphPage(ttk.Frame):
         self.show_weak = not self.show_weak
         self.btn_weak.configure(text=i18n.t("显示弱证据") if not self.show_weak else "隐藏弱证据")
         self._draw()
+
+    def _sync_anchor_button(self) -> None:
+        if not hasattr(self, "btn_anchor"):
+            return
+        self.btn_anchor.configure(
+            text=i18n.t("普通视图") if self.anchor_mode else i18n.t("锚定视图")
+        )
+
+    def toggle_anchor(self) -> None:
+        """在「按档案分组」和「以基准账号为中心」两种摆法之间切换。"""
+        seed_key = str(self.anchor.get("seed") or "")
+        if not seed_key:
+            self._write(
+                i18n.t("还没有基准账号。先回「检索」页，在「基准账号」里填一个你确定的账号，再点「基准扫描」。")
+            )
+            return
+        self.anchor_mode = not self.anchor_mode
+        self._sync_anchor_button()
+        self.relayout()
 
     # ---------- 纠错 ----------
     def _update_buttons(self) -> None:

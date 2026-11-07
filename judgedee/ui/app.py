@@ -43,6 +43,7 @@ class Shell(tk.Tk):
         self.hist = History()
         self.constraints = Constraints()
         self.identity: dict = {}
+        self.anchor: dict = {}
         self.pages: dict[str, ttk.Frame] = {}
         self.nav_buttons: dict[str, ttk.Button] = {}
         self.current = ""

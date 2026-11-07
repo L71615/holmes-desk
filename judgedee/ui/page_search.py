@@ -681,6 +681,16 @@ class SearchPage(ttk.Frame):
         )
         self.btn_graph.configure(state="normal" if self.rows else "disabled")
 
+        # 把种子与候选分数交给图谱页，用来画「锚定视图」
+        seed_key = f"{seed.site}|{seed.username}"
+        self.shell.anchor = {
+            "seed": seed_key,
+            "scores": {f"{item.site}|{item.username}": float(item.score) for item in kept},
+        }
+        graph_page = getattr(self.shell, "pages", {}).get("graph")
+        if graph_page is not None:
+            graph_page.refresh()
+
     def _anchor_finish(self) -> None:
         self.busy = False
         self.btn_anchor.configure(state="normal")

@@ -112,5 +112,33 @@ class GraphTest(unittest.TestCase):
         self.assertEqual(graph.degrees(keys, [])["GitHub|solo"], 0.0)
 
 
+class AnchorLayoutTest(unittest.TestCase):
+    def setUp(self):
+        self.keys = ["GitHub|a", "GitLab|a", "Reddit|a", "Steam|a"]
+        self.scores = {"GitLab|a": 0.9, "Reddit|a": 0.5, "Steam|a": 0.1}
+
+    def test_seed_is_centered(self):
+        pos = graph.anchor_layout(self.keys, "GitHub|a", self.scores, 1000.0, 700.0)
+        self.assertEqual(pos["GitHub|a"], (500.0, 350.0))
+
+    def test_strong_candidate_is_closer(self):
+        pos = graph.anchor_layout(self.keys, "GitHub|a", self.scores, 1000.0, 700.0)
+
+        def dist(key):
+            x, y = pos[key]
+            return ((x - 500.0) ** 2 + (y - 350.0) ** 2) ** 0.5
+
+        self.assertLess(dist("GitLab|a"), dist("Reddit|a"))
+        self.assertLess(dist("Reddit|a"), dist("Steam|a"))
+
+    def test_layout_is_deterministic(self):
+        first = graph.anchor_layout(self.keys, "GitHub|a", self.scores)
+        second = graph.anchor_layout(self.keys, "GitHub|a", self.scores)
+        self.assertEqual(first, second)
+
+    def test_empty_keys(self):
+        self.assertEqual(graph.anchor_layout([], "x", {}), {})
+
+
 if __name__ == "__main__":
     unittest.main()
